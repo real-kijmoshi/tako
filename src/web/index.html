@@ -197,6 +197,39 @@ h1 { font: 700 34px/1.1 var(--sign); letter-spacing: -.005em; margin: 0 0 6px; }
 #netmap .burst { fill: none; stroke-width: 2; transform-box: fill-box; transform-origin: center; }
 #netmap .float { font: 700 12px var(--sign); letter-spacing: .03em; }
 #netmap .empty-msg { fill: var(--flap-dim); font: 14px var(--body); }
+/* lines glow where traffic just ran and carry moving dashes while a request is on them */
+#netmap .heat { fill: none; stroke-linecap: round; pointer-events: none; opacity: 0; filter: drop-shadow(0 0 5px currentColor); }
+#netmap .flow { fill: none; stroke: var(--flap); stroke-width: 2.2; stroke-dasharray: 3 11; stroke-linecap: round; opacity: 0; transition: opacity .4s; animation: nm-flow .7s linear infinite; pointer-events: none; }
+#netmap .flow.on { opacity: .95; }
+#netmap .flow.streaming { stroke: #7fdc95; animation-direction: reverse; animation-duration: .45s; }
+@keyframes nm-flow { to { stroke-dashoffset: -14; } }
+#netmap .nm-stat { fill: var(--flap-dim); font-size: 10.5px; }
+#netmap .nm-live { fill: var(--flap); font: 700 10.5px var(--sign); letter-spacing: .03em; }
+#netmap .hub-arc { fill: none; stroke: var(--good); stroke-width: 2.5; stroke-linecap: round; transition: stroke-dasharray .8s ease; }
+#netmap .hub-arc-bg { fill: none; stroke: var(--board-rule); stroke-width: 2.5; }
+#netmap .hub-unit.live { fill: var(--flap); font-weight: 700; }
+/* ticker: the latest requests, live ones counting */
+.nm-ticker { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; min-height: 50px; padding: 0 18px 16px; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, #000 82%, transparent); mask-image: linear-gradient(90deg, #000 82%, transparent); }
+.tk { flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px 6px 9px; border-radius: 8px; background: var(--board-2); border: 1px solid var(--board-rule); font: 12px var(--mono); color: #c9d1de; white-space: nowrap; cursor: pointer; transition: border-color .3s, background-color .3s, box-shadow .3s; }
+.tk:hover { border-color: #3b4a63; }
+.tk > b { color: #fff; font-weight: 600; }
+.tk .tk-arrow { color: var(--flap-dim); }
+.tk .tk-val { color: var(--flap-dim); font-variant-numeric: tabular-nums; }
+.tk .tk-val b { color: #fff; font-weight: 600; }
+.tk .tk-val .out { color: #7fdc95; }
+.tk .tk-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--flap-dim); flex: none; }
+.tk.running, .tk.diverting { border-color: color-mix(in srgb, var(--flap) 60%, transparent); background: color-mix(in srgb, var(--flap) 10%, var(--board-2)); }
+.tk.running .tk-dot, .tk.diverting .tk-dot { background: var(--flap); animation: livedot 1s ease-in-out infinite; }
+.tk.streaming { border-color: color-mix(in srgb, var(--good) 75%, transparent); background: color-mix(in srgb, var(--good) 16%, var(--board-2)); box-shadow: 0 0 14px color-mix(in srgb, var(--good) 35%, transparent); }
+.tk.streaming .tk-dot { background: #7fdc95; box-shadow: 0 0 8px #7fdc95; animation: livedot .8s ease-in-out infinite; }
+.tk.served .tk-dot { background: #7fdc95; } .tk.diverted .tk-dot { background: var(--flap); } .tk.failed .tk-dot { background: #ff8f88; }
+.tk.failed { border-color: color-mix(in srgb, var(--critical) 45%, transparent); }
+.tk.enter { animation: tk-in .5s cubic-bezier(.2,.8,.2,1); }
+.tk.tk-land { animation: tk-land 1s ease-out; }
+@keyframes tk-in { from { opacity: 0; transform: translateX(-28px) scale(.9); } }
+@keyframes tk-land { 0% { transform: scale(1.08); box-shadow: 0 0 22px currentColor; } 100% { transform: none; } }
+.tk-empty { color: var(--flap-dim); font: 12.5px var(--body); }
+.tk-empty::after { content: "_"; animation: beat 1s steps(1) infinite; }
 
 /* ---------- departures board (live requests) ---------- */
 .board-card { background: var(--board); border-color: var(--board); color: #e8ecf3; padding: 0; overflow: hidden; }
@@ -723,6 +756,7 @@ button:disabled { cursor: not-allowed; }
     <div class="netmap-head"><h2><i data-ic="route"></i>Live routing <span class="count" id="nm-sub">each request runs the line it took</span></h2>
       <span class="legend"><span><i style="background:var(--flap)"></i>request</span><span><i style="background:var(--good)"></i>served</span><span><i style="background:var(--critical)"></i>failed, diverted</span></span></div>
     <svg id="netmap" role="img" aria-label="Requests flowing from your apps through tako to providers"></svg>
+    <div class="nm-ticker" id="nm-ticker" aria-label="Latest requests"></div>
   </section>
   <section class="grid kpis">
     <div class="kpi"><div class="label"><i data-ic="activity"></i>Requests</div><div class="value" id="k-total">0</div><div class="sub" id="k-total-sub"></div><svg class="spark" id="k-spark" viewBox="0 0 100 40" preserveAspectRatio="none"><path class="area" d=""/><path class="line" d="" vector-effect="non-scaling-stroke"/></svg></div>
@@ -1062,7 +1096,7 @@ button:disabled { cursor: not-allowed; }
     renderCombos();
     renderKinds(s.kinds || {});
     renderTargets();
-    nmRender(s);
+    nmRender(s); renderTicker(s.recent || []);
     if (page === 'providers') fillProviderStats();
   }
 
@@ -1096,7 +1130,7 @@ button:disabled { cursor: not-allowed; }
     const all = nmTargets(), targets = all.slice(0, 9), narrow = w < 640;
     const key = w + "|" + targets.join(",");
     if (key === nm.key) return; nm.key = key;
-    svg.innerHTML = ""; nm.tracks = {}; nm.stations = {};
+    svg.innerHTML = ""; nm.tracks = {}; nm.stations = {}; nm.heat = {}; nm.flows = {};
     const rowH = 40, h = Math.max(230, 70 + targets.length * rowH);
     svg.setAttribute("viewBox", `0 0 ${w} ${h}`); svg.setAttribute("height", h);
     if (!targets.length) {
@@ -1108,6 +1142,8 @@ button:disabled { cursor: not-allowed; }
     nm.layer = mk("g", {}, svg);
     // feeder line: apps → hub
     nm.feeder = mk("path", { d: `M${cx + 18},${cy} L${hx - 26},${cy}`, class: "trk used", "stroke-width": 5 }, tracksG);
+    nm.heat.__feeder = { p: mk("path", { d: nm.feeder.getAttribute("d"), class: "heat" }, tracksG), v: 0, ok: true };
+    nm.feederFlow = mk("path", { d: nm.feeder.getAttribute("d"), class: "flow" }, tracksG);
     const client = mk("g", {}, stG);
     mk("rect", { x: cx - 18, y: cy - 18, width: 36, height: 36, rx: 6, class: "client" }, client);
     mk("path", { d: `M${cx - 8},${cy - 6} l6,6 -6,6 M${cx + 1},${cy + 7} h8`, fill: "none", stroke: "#e8ecf3", "stroke-width": 2, "stroke-linecap": "round" }, client);
@@ -1118,6 +1154,8 @@ button:disabled { cursor: not-allowed; }
     targets.forEach((t, i) => {
       const ty = top + i * rowH, d = `M${hx + 26},${cy} C${hx + (sx - hx) * .55},${cy} ${hx + (sx - hx) * .45},${ty} ${sx - 9},${ty}`;
       nm.tracks[t] = mk("path", { d, class: "trk", "stroke-width": 3 }, tracksG);
+      nm.heat[t] = { p: mk("path", { d, class: "heat" }, tracksG), v: 0, ok: true };
+      nm.flows[t] = mk("path", { d, class: "flow" }, tracksG);
       const g = mk("g", { "data-t": t }, stG);
       mk("circle", { cx: sx, cy: ty, r: 7.5, class: "stn" }, g);
       const cd = mk("circle", { cx: sx, cy: ty, r: 12, class: "cd", "stroke-dasharray": 75.4, "stroke-dashoffset": 75.4 }, g);
@@ -1129,18 +1167,23 @@ button:disabled { cursor: not-allowed; }
       const maxCh = Math.max(8, Math.floor((w - lx - 12) / 7.6));
       label.textContent = t.length > maxCh ? t.slice(0, maxCh - 1) + "…" : t;
       mk("title", {}, g).textContent = t;
-      const why = mk("text", { x: lx, y: ty + 14, class: "nm-why" }, g);
-      nm.stations[t] = { g, x: sx, y: ty, cd, why };
+      const why = mk("text", { x: lx, y: ty + 14, class: "nm-stat" }, g);
+      const liveT = mk("tspan", { class: "nm-live" }, why), statT = mk("tspan", {}, why);
+      nm.stations[t] = { g, x: sx, y: ty, cd, why, liveT, statT };
     });
     if (all.length > targets.length) mk("text", { x: sx + 46, y: h - 10, class: "nm-sub" }, stG).textContent = `+${all.length - targets.length} more in Combos`;
     // hub
     const hub = mk("g", {}, svg);
     mk("circle", { cx: hx, cy, r: 26, fill: "var(--board)" }, hub);
     mk("circle", { cx: hx, cy, r: 22, class: "hub-ring" }, hub);
+    // outer gauge: share of requests served, filling clockwise from the top
+    mk("circle", { cx: hx, cy, r: 30, class: "hub-arc-bg" }, hub);
+    const arc = mk("circle", { cx: hx, cy, r: 30, class: "hub-arc", transform: `rotate(-90 ${hx} ${cy})`, "stroke-dasharray": `0 ${2 * Math.PI * 30}` }, hub);
+    mk("title", {}, hub).textContent = "Inner number: requests per minute. Outer ring: share of requests served.";
     const orbit = mk("g", { class: "hub-orbit", style: `transform-origin:${hx}px ${cy}px` }, hub);
     mk("circle", { cx: hx, cy: cy - 22, r: 5, class: "hub-moon", stroke: "var(--board)", "stroke-width": 2 }, orbit);
-    nm.hub = { g: hub, ring: hub.querySelector('.hub-ring'), x: hx, y: cy, num: mk("text", { x: hx, y: cy + 5, class: "hub-num" }, hub), orbit };
-    mk("text", { x: hx, y: cy + 46, class: "hub-unit" }, hub).textContent = "req / min";
+    nm.hub = { g: hub, ring: hub.querySelector('.hub-ring'), x: hx, y: cy, num: mk("text", { x: hx, y: cy + 5, class: "hub-num" }, hub), orbit, arc };
+    nm.hub.unit = mk("text", { x: hx, y: cy + 48, class: "hub-unit" }, hub); nm.hub.unit.textContent = "req / min";
     mk("text", { x: hx, y: cy - 36, "text-anchor": "middle", class: "nm-title" }, hub).textContent = "tako";
     // draw the lines in once, on first build
     if (!calm() && !nm.drawn) {
@@ -1160,6 +1203,16 @@ button:disabled { cursor: not-allowed; }
     const rpm = Math.max(cur ? cur[1] + cur[2] : 0, prev ? prev[1] + prev[2] : 0);
     nm.hub.num.textContent = rpm;
     nm.hub.orbit.style.setProperty("--spin", `${Math.max(.9, 8 / Math.sqrt(1 + rpm))}s`);
+    const rq = s.requests || {}, C = 2 * Math.PI * 30, servedShare = rq.total ? (rq.first_try + rq.rescued) / rq.total : 0;
+    nm.hub.arc.setAttribute("stroke-dasharray", `${servedShare * C} ${C}`);
+    nm.hub.arc.style.stroke = servedShare >= .9 || !rq.total ? "" : "var(--warning)";
+    // who is on the line right now
+    const liveBy = {}, streamBy = {};
+    for (const f of s.inflight || []) if (f.target) { const b = baseTag(f.target); liveBy[b] = (liveBy[b] || 0) + 1; if (f.phase === "streaming") streamBy[b] = 1; }
+    const liveN = (s.inflight || []).length;
+    nm.hub.unit.textContent = liveN ? `${liveN} in flight` : "req / min";
+    nm.hub.unit.setAttribute("class", liveN ? "hub-unit live" : "hub-unit");
+    nm.feederFlow.setAttribute("class", `flow${liveN ? " on" : ""}${Object.keys(streamBy).length ? " streaming" : ""}`);
     // track weight by share of successful traffic, station state from health
     const okTot = Math.max(1, ...Object.keys(nm.tracks).map((t) => s.stats?.[t]?.ok || 0));
     for (const [t, p] of Object.entries(nm.tracks)) {
@@ -1167,7 +1220,11 @@ button:disabled { cursor: not-allowed; }
       p.setAttribute("stroke-width", ok ? 3 + 5 * ok / okTot : 3);
       p.classList.toggle("used", ok > 0); p.classList.toggle("down", st.cls === "benched");
       stn.g.setAttribute("class", st.cls);
-      stn.why.textContent = st.why || "";
+      nm.flows[t].setAttribute("class", `flow${liveBy[t] ? " on" : ""}${streamBy[t] ? " streaming" : ""}`);
+      const tot = s.stats?.[t] ? s.stats[t].ok + s.stats[t].fail : 0;
+      stn.liveT.textContent = liveBy[t] ? `● ${liveBy[t]} live  ` : "";
+      stn.statT.textContent = st.why || (tot ? `${tot.toLocaleString()} req · ${ok ? fmtMs(s.stats[t].avg_ms) : "–"} · ${Math.round(ok / tot * 100)}% ok` : "");
+      stn.why.setAttribute("class", st.why ? "nm-why" : "nm-stat");
       const cool = Object.entries(deadlines).find(([k]) => baseTag(k) === t);
       stn.cd.dataset.until = cool ? cool[1].until : ""; stn.cd.dataset.total = cool ? cool[1].total : "";
     }
@@ -1253,7 +1310,7 @@ button:disabled { cursor: not-allowed; }
         if (want && want !== tr.tag && nm.tracks[want]) {
           if (tr.tag && nm.tracks[tr.tag]) {
             const st = nm.stations[tr.tag], miss = attemptsOf(tr.req).reverse().find((e) => e.kind && baseTag(e.target) === tr.tag);
-            signal(st.x, st.y, false, miss ? `${miss.status || "ERR"} ${miss.label || ""}`.trim() : "diverted");
+            nmHeat(tr.tag, false); signal(st.x, st.y, false, miss ? `${miss.status || "ERR"} ${miss.label || ""}`.trim() : "diverted");
             await ride(tr.dot, nm.tracks[tr.tag], 420, true);
           }
           await ride(tr.dot, nm.tracks[want], 620);
@@ -1265,7 +1322,7 @@ button:disabled { cursor: not-allowed; }
         const items = attemptsOf(tr.req), last = items[items.length - 1], st = tr.tag && nm.stations[tr.tag];
         if (st && last) {
           const ok = !last.kind, tok = last.tokens?.output_tokens;
-          signal(st.x, st.y, ok, ok ? (tok ? `${tok.toLocaleString()} tok` : fmtMs(last.ms)) : `${last.status || "ERR"} ${last.label || ""}`.trim());
+          nmHeat(tr.tag, ok); signal(st.x, st.y, ok, ok ? (tok ? `${tok.toLocaleString()} tok` : fmtMs(last.ms)) : `${last.status || "ERR"} ${last.label || ""}`.trim());
         }
         tr.dot.setAttribute("class", "train-live");
         const fade = tr.dot.animate?.([{ opacity: 1 }, { opacity: 0 }], { duration: 300 });
@@ -1287,6 +1344,20 @@ button:disabled { cursor: not-allowed; }
       ride(pkt, track, 520, true).then(() => pkt.isConnected && ride(pkt, nm.feeder, 340, true)).then(() => pkt.remove());
     }
   }, 180);
+  // a line lights up where a request just ran (green served, red failed) and cools over ~10s
+  function nmHeat(tag, ok) {
+    for (const h of [nm.heat?.[tag], nm.heat?.__feeder]) if (h) { h.v = 1; h.ok = ok || h === nm.heat.__feeder; }
+  }
+  setInterval(() => {
+    if (document.hidden || !nm.heat) return;
+    for (const h of Object.values(nm.heat)) {
+      if (h.v < .02) { if (h.on) { h.p.style.opacity = 0; h.on = false; } continue; }
+      h.v *= .975; h.on = true;
+      h.p.style.opacity = Math.min(.9, h.v);
+      h.p.style.stroke = h.p.style.color = h.ok ? "#7fdc95" : "#ff8f88";
+      h.p.setAttribute("stroke-width", 2 + 5 * h.v);
+    }
+  }, 100);
   async function runTrain(items) {
     if (!nm.layer || !nm.layer.isConnected) return;
     const steps = items.filter((e) => nm.tracks[baseTag(e.target)]);
@@ -1300,7 +1371,7 @@ button:disabled { cursor: not-allowed; }
       if (!path || !path.isConnected) break;
       await ride(dot, path, 620);
       const ok = !e.kind;
-      signal(st.x, st.y, ok, ok ? fmtMs(e.ms) : `${e.status || "ERR"} ${e.label || ""}`.trim());
+      nmHeat(tag, ok); signal(st.x, st.y, ok, ok ? fmtMs(e.ms) : `${e.status || "ERR"} ${e.label || ""}`.trim());
       if (!ok && i < steps.length - 1) await ride(dot, path, 420, true);
     }
     dot.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300 }).onfinish = () => dot.remove();
@@ -1525,7 +1596,7 @@ button:disabled { cursor: not-allowed; }
   function feedTick() {
     if (!document.hidden) {
       const now = Date.now() + skew;
-      for (const r of feedRows.values()) {
+      for (const r of [...feedRows.values(), ...tickRows.values()]) {
         if (!r.live) continue;
         if (r.elEl) r.elEl.textContent = fmtLive(now - r.start);
         if (r.outEl) {
@@ -1538,6 +1609,59 @@ button:disabled { cursor: not-allowed; }
     requestAnimationFrame(feedTick);
   }
   requestAnimationFrame(feedTick);
+
+  // ---- ticker under the map: the latest requests, live ones counting ----
+  const tickRows = new Map();
+  let tickFirst = true;
+  function tickChip(g, state) {
+    const fl = g.fl, items = g.items, last = items[items.length - 1], model = fl?.model || items[0].model;
+    const tgt = fl?.target || ([...items].reverse().find((e) => !e.kind) || last)?.target || "";
+    const val = state === "streaming" ? `<b data-el></b> · ↓ <b class="out" data-out>0</b> tok`
+      : LIVE[state] ? `<b data-el></b>`
+      : state === "failed" ? `${esc(String(last.status || "ERR"))} ${esc(last.label || "")}`
+      : `${fmtMs(last.ms)}${last.tokens ? ` · ${last.tokens.estimated_requests ? "~" : ""}${last.tokens.total_tokens.toLocaleString()} tok` : ""}`;
+    const where = tgt ? `${plogo(provOf(tgt), "sm")}<span>${esc(tgt.slice(provOf(tgt).length + 1) || tgt)}</span>` : `<span class="dim">routing…</span>`;
+    return `<span class="tk-dot"></span><b>${esc(model)}</b><span class="tk-arrow">→</span>${where}<span class="tk-val">${val}</span>`;
+  }
+  function renderTicker(recent) {
+    const box = $("nm-ticker");
+    if (!box) return;
+    const groups = feedGroupsOf(recent).slice(0, 10);
+    if (!groups.length) {
+      if (!box.querySelector(".tk-empty")) box.innerHTML = `<span class="tk-empty">Waiting for the first request</span>`;
+      tickRows.clear(); tickFirst = false; return;
+    }
+    box.querySelector(".tk-empty")?.remove();
+    const keep = new Set();
+    groups.forEach((g, i) => {
+      const key = String(g.req), state = feedState(g);
+      if (!reqStart.has(key)) reqStart.set(key, g.fl ? g.fl.t : g.items[0].t * 1000 - (g.items[0].ms || 0));
+      let r = tickRows.get(key);
+      const fresh = !r;
+      if (fresh) {
+        const el = document.createElement("button");
+        el.type = "button"; el.className = "tk"; el.dataset.req = key;
+        r = { el, html: "", state: "", out: 0, outShown: 0 };
+        tickRows.set(key, r);
+      }
+      const el = r.el, html = tickChip(g, state);
+      if (r.html !== html) { el.innerHTML = html; r.html = html; r.elEl = el.querySelector("[data-el]"); r.outEl = el.querySelector("[data-out]"); }
+      if (r.state !== state) {
+        if (r.state) el.classList.remove(r.state);
+        el.classList.add(state);
+        if (!calm() && LIVE[r.state] && !LIVE[state]) { el.classList.remove("tk-land"); void el.offsetWidth; el.classList.add("tk-land"); setTimeout(() => el.classList.remove("tk-land"), 1000); }
+      }
+      r.state = state; r.start = reqStart.get(key); r.live = !!LIVE[state]; r.items = g.items;
+      r.out = g.fl?.out || 0; if (!r.live) r.outShown = 0;
+      el.title = `${g.fl?.model || g.items[0].model} · ${state} · click to inspect`;
+      keep.add(key);
+      if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
+      if (fresh && !tickFirst && !calm()) { el.classList.add("enter"); setTimeout(() => el.classList.remove("enter"), 600); }
+    });
+    for (const [k, r] of tickRows) if (!keep.has(k)) { r.el.remove(); tickRows.delete(k); }
+    tickFirst = false;
+  }
+  $("nm-ticker").addEventListener("click", (e) => { const c = e.target.closest(".tk"), r = c && tickRows.get(c.dataset.req); if (r?.items?.length) openDrawer(r.items); });
 
   // ---- combos ----
   function targetState(tag) {
