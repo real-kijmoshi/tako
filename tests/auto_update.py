@@ -37,7 +37,9 @@ class SchedulerTest(unittest.TestCase):
             else:
                 schedule = home / '.config/systemd/user/tako-update.timer'
                 self.assertIn('OnCalendar=daily', schedule.read_text())
-                self.assertIn(str(cfg.resolve()), (schedule.parent / 'tako-update.service').read_text())
+                service = (schedule.parent / 'tako-update.service').read_text()
+                self.assertIn(str(cfg.resolve()), service)
+                self.assertIn('KillMode=process', service)
             run('on')  # Re-enabling replaces the schedule instead of duplicating it.
             self.assertTrue(schedule.exists())
             self.assertIn('off', run('off'))

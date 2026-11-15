@@ -79,7 +79,7 @@ fn plist(exe: &str, home: &str, log: &str) -> String {
     )
 }
 fn unit(exe: &str, home: &str) -> String {
-    format!("[Unit]\nDescription=Check for verified Tako updates\nWants=network-online.target\nAfter=network-online.target\n\n[Service]\nType=oneshot\nExecStart={} update\nEnvironment={}\nTimeoutStartSec=10min\n", quote(exe, true), quote(&format!("TAKO_HOME={home}"), false))
+    format!("[Unit]\nDescription=Check for verified Tako updates\nWants=network-online.target\nAfter=network-online.target\n\n[Service]\nType=oneshot\nExecStart={} update\nEnvironment={}\nTimeoutStartSec=10min\n# A restarted standalone router must outlive the updater.\nKillMode=process\n", quote(exe, true), quote(&format!("TAKO_HOME={home}"), false))
 }
 const SCHEDULE: &str = "[Unit]\nDescription=Update Tako daily\n\n[Timer]\nOnCalendar=daily\nPersistent=true\nRandomizedDelaySec=1h\n\n[Install]\nWantedBy=timers.target\n";
 
@@ -176,6 +176,7 @@ mod tests {
     fn systemd_preserves_spaces_and_literal_specifiers() {
         let u = unit("/a b/100%/$tool", "/config/%u/$home");
         assert!(u.contains("ExecStart=\"/a b/100%%/$$tool\" update"));
+        assert!(u.contains("KillMode=process\n"));
         assert!(u.contains("Environment=\"TAKO_HOME=/config/%%u/$home\""));
         assert!(SCHEDULE.contains("Persistent=true"));
         assert!(SCHEDULE.contains("OnCalendar=daily"));
