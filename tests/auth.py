@@ -98,6 +98,14 @@ class AuthTest(unittest.TestCase):
                 self.assertIn(hashlib.sha256(key.encode()).hexdigest(), credential_path.read_text())
                 self.assertEqual(request('/v1/models', key=key)[0], 200)
                 self.assertEqual(request('/api/overview', key=key)[0], 401)
+                for operation in ['settings.export','settings.preview','settings.import']:
+                    self.assertEqual(request('/api/action', {'action':operation}, key=key)[0],401)
+                code, exported, _ = request('/api/action', {'action':'settings.export'}, cookie=cookie)
+                self.assertEqual(code,200)
+                self.assertEqual(exported['bundle']['format'],'tako-settings')
+                self.assertNotIn(key,json.dumps(exported))
+                self.assertNotIn('password',exported['bundle']['settings'])
+                self.assertEqual(request('/api/action', {'action':'settings.export'}, cookie=cookie, origin='https://evil.example')[0],403)
                 upstream = ThreadingHTTPServer(('127.0.0.1', 0), Provider)
                 threading.Thread(target=upstream.serve_forever, daemon=True).start()
                 try:

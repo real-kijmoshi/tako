@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 — 2026-11-15
+
+- Export and import portable settings from the CLI and web panel's Connect tab.
+- Move providers, provider keys/headers, combos, aliases, and routing preferences while preserving destination access and authentication.
+- Validate imports before writing, save private backups, and preview counts in the browser.
+- Preserve environment-variable references rather than exporting resolved environment secrets.
+- Refine the landing page, remove the base URL callout, add a sourced OmniRoute comparison, and improve the shared Tako logo.
+
 ## 0.1.0 — 2026-11-15
 
 Initial release of tako, a self-hostable AI router with automatic fallback.

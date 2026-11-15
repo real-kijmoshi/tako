@@ -7,6 +7,7 @@ mod dashboard;
 mod edit;
 mod failure;
 mod server;
+mod settings;
 mod stream;
 mod translate;
 mod tui;
@@ -31,6 +32,8 @@ usage: tako [command]     (no command opens the dashboard)
   setup-vps [IP:port | --proxy]  configure password and VPS access
   config       edit the config (changes apply live)
   check        validate the config
+  export FILE  export portable settings (includes provider keys)
+  import FILE  import settings and back up the destination
 
   enable       start automatically at login
   disable      don't start at login
@@ -75,6 +78,8 @@ fn main() {
         "password" => auth::password(),
         "setup-vps" => setup_vps(&args[1..]),
         "check" => config::check(),
+        "export" => settings::command(false, &args[1..]),
+        "import" => settings::command(true, &args[1..]),
         "enable" => done(daemon::enable()),
         "disable" => done(daemon::disable()),
         "update" | "upgrade" => daemon::update(),

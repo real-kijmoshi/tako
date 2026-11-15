@@ -161,7 +161,11 @@ pub fn ensure() -> Result<PathBuf, String> {
 
 pub fn load(path: &Path) -> Result<Config, String> {
     let s = fs::read_to_string(path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
-    let mut c: Config = toml::from_str(&s).map_err(|e| format!("{}: {e}", path.display()))?;
+    parse(&s).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+pub fn parse(s: &str) -> Result<Config, String> {
+    let mut c: Config = toml::from_str(s).map_err(|e| e.to_string())?;
 
     let mut warnings = Vec::new();
     for (name, p) in c.providers.iter_mut() {

@@ -22,6 +22,10 @@ const root = path.resolve(__dirname, '../landing');
     const ref = e.getAttribute('src') || e.getAttribute('href');
     assert.ok(fs.existsSync(path.join(root, ref)), `Local asset ${ref} exists`);
   }
+  assert.equal(d.querySelector('.endpoint'), null);
+  assert.ok(!d.body.textContent.includes('base_url'));
+  assert.ok(!d.body.textContent.includes('127.0.0.1:20129'));
+  assert.match(d.querySelector('#compare').textContent, /OmniRoute/);
   d.querySelector('#copy').click();
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(copied, d.querySelector('#install-command').textContent);

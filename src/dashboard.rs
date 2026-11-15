@@ -116,6 +116,9 @@ pub async fn action_with_token(
     // Keep read/modify/write operations from concurrent browser requests serialized.
     let _guard = EDIT.lock().map_err(|_| "Config editor unavailable")?;
     match action {
+        "settings.export" => return crate::settings::export(),
+        "settings.preview" => return crate::settings::preview(v["bundle"].clone()),
+        "settings.import" => return crate::settings::import(v["bundle"].clone()),
         "provider.add" => {
             let id = string(&v, "provider")?;
             if id.contains('/') || id.len() > 100 {

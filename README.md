@@ -68,6 +68,31 @@ Tako works with compatible hosted APIs and local servers such as Ollama or
 LM Studio. It does not supply model credits or bypass provider quotas. Free-tier
 availability and terms depend on your accounts and providers.
 
+## Move your setup to another machine
+
+Open **Connect → Move your setup** in the web panel. Export on the first machine,
+then import the JSON file on the other. The panel previews the provider and combo
+counts before you confirm.
+
+Or use the terminal:
+
+```sh
+tako export tako-settings.json
+# Transfer this file privately to the other machine, then:
+tako import tako-settings.json
+```
+
+Exports include provider API keys, custom provider headers, combos, aliases,
+and routing preferences. They preserve `env:VARIABLE` references; set those
+variables separately on the destination. Keep export files private.
+
+Import replaces the destination's provider/routing settings after validation and
+saves a private `config.before-import-*.toml` backup. Its listen address, router
+API key, admin password, client keys, browser sessions, and update schedule stay
+on that machine. Invalid files leave the destination configuration unchanged.
+CLI exports refuse to overwrite existing files. Export, import, and backup files
+written by Tako use owner-only permissions. Maximum transfer file size: 256 KB.
+
 ## Updates
 
 ```sh
@@ -116,6 +141,7 @@ Settings live in `~/.config/tako/config.toml`. Use `TAKO_HOME` for another direc
 | `tako start` / `stop` / `restart` | Manage the background router |
 | `tako status` / `tako logs -f` | Inspect traffic and follow logs |
 | `tako config` / `tako check` | Edit / validate configuration |
+| `tako export FILE` / `tako import FILE` | Move provider and routing settings between machines |
 | `tako password` | Set or reset the web admin password |
 | `tako enable` / `tako disable` | Toggle router startup at login |
 | `tako update` | Install the latest verified release |
@@ -149,7 +175,7 @@ in a Git-connected Pages project. See its [deployment notes](landing/README.md).
 
 ## Releases and license
 
-Tag a checked commit with the package version (for example `v0.1.0`) and push the
+Tag a checked commit with the package version (for example `v0.1.1`) and push the
 tag. The release workflow verifies it, builds four platform binaries, and prepares
 a draft with SHA-256 checksums. Publish the draft after checking all assets.
 

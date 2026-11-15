@@ -10,6 +10,7 @@ python3 tests/dashboard.py
 python3 tests/auth.py
 python3 tests/installer.py
 python3 tests/auto_update.py
+python3 tests/settings.py
 npm ci --prefix tests --no-audit --no-fund
 node tests/web.cjs
 node tests/landing.cjs

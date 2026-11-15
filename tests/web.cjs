@@ -16,11 +16,14 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  proc=spawn(path.join(root,'target/debug/tako'),['run'],{env:{...process.env,TAKO_HOME:fixture},stdio:'ignore'});
  for(let i=0;i<100;i++){try{const r=await fetch(base+'/health');if(r.ok)break;}catch{}await new Promise(r=>setTimeout(r,50));}
  const errors=[]; const logs=new VirtualConsole();logs.on('jsdomError',e=>errors.push(e.message));
- let copied='';
+ let copied='', downloaded=null, downloadName='';
  const dom=new JSDOM(fs.readFileSync(root+'/src/web/index.html','utf8'),{
   url:base+'/ui',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:logs,
   beforeParse(w){
    w.fetch=(url,options={})=>fetch(new URL(url,base),{...options,headers:options.headers});
+   w.URL.createObjectURL=blob=>{downloaded=blob;return 'blob:tako-test';};
+   w.URL.revokeObjectURL=()=>{};
+   w.HTMLAnchorElement.prototype.click=function(){downloadName=this.download;};
    w.matchMedia=()=>({matches:false,addEventListener(){}});
    w.ResizeObserver=class{observe(){}disconnect(){}};
    w.HTMLElement.prototype.scrollIntoView=function(){};
@@ -54,6 +57,30 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  click('#dismiss-key');assert.equal($('#new-key').value,'');
  click('[data-page="connect"]');assert.match($('#connect-content').textContent,/ANTHROPIC_BASE_URL/);
  assert.ok($('#connect-content').textContent.includes(base));
+ click('#settings-export');assert.match($('#dialog-description').textContent,/provider API keys/);
+ click('#dialog-cancel');assert.equal(downloaded,null);
+ click('#settings-export');$('#dialog-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ await wait(()=>downloaded!==null&&!$('#modal').open);
+ assert.equal(downloadName,'tako-settings.json');
+ const bundle={format:'tako-settings',version:1,settings:'default = "portable"\n[providers.portable]\ntype = "openai"\nkeys = ["test-transfer-key"]\n[combos]\nportable = ["portable/model"]\n'};
+ const input=$('#settings-file');
+ const choose=async value=>{
+  const text=JSON.stringify(value);
+  Object.defineProperty(input,'files',{configurable:true,value:[{size:text.length,text:async()=>text}]});
+  input.dispatchEvent(new w.Event('change',{bubbles:true}));
+  await wait(()=>$('#modal').open||$('#settings-result').textContent.includes('Invalid settings'));
+ };
+ await choose(bundle);assert.match($('#dialog-body').textContent,/1 providers/);
+ click('#dialog-cancel');
+ assert.equal(JSON.parse((await (await fetch(base+'/api/overview')).text())).providers.portable,undefined);
+ await choose(bundle);$('#dialog-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ await wait(()=>!$('#modal').open&&$('#settings-result').textContent.includes('Imported 1 providers'));
+ assert.ok(fs.readdirSync(fixture).some(f=>f.startsWith('config.before-import-')));
+ const config=fs.readFileSync(path.join(fixture,'config.toml'),'utf8');
+ assert.match(config,/test-transfer-key/);assert.ok(config.includes('127.0.0.1:'+port));
+ const bad={...bundle,settings:'[combos]\ninvalid=["missing/model"]'};
+ await choose(bad);assert.equal($('#modal').open,false);
+ assert.equal(fs.readFileSync(path.join(fixture,'config.toml'),'utf8'),config);
  assert.equal(errors.length,0,errors.join('\n'));
  dom.window.close();
  const login=new JSDOM(fs.readFileSync(root+'/src/web/login.html','utf8'),{url:base+'/ui?session=expired#access',runScripts:'dangerously'});
