@@ -451,6 +451,8 @@ pub fn update() -> Result<(), String> {
     let updated = rt.block_on(async {
         let http = reqwest::Client::builder()
             .user_agent(concat!("tako/", env!("CARGO_PKG_VERSION")))
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(120))
             .build()
             .map_err(e2s)?;
         let api = format!("https://api.github.com/repos/{REPO}/releases/latest");
@@ -517,6 +519,7 @@ pub fn uninstall() -> Result<(), String> {
     if !confirm("Continue?") {
         return Ok(());
     }
+    crate::auto_update::disable()?;
     if service_installed() {
         println!("{} {}", green("✓"), disable()?);
     }

@@ -22,12 +22,13 @@ jobs:
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
       - run: cargo build --locked
-      - run: python3 tests/dashboard.py && python3 tests/auth.py && python3 tests/installer.py
+      - run: python3 tests/dashboard.py && python3 tests/auth.py && python3 tests/installer.py && python3 tests/auto_update.py
       - uses: actions/setup-node@v4
         with:
           node-version: 24
       - run: npm ci --prefix tests
       - run: node tests/web.cjs
+      - run: node tests/landing.cjs
   build:
     needs: verify
     strategy:

@@ -30,6 +30,20 @@ Keys are shown once and can be renamed or revoked without restarting the router.
 - macOS and Linux binaries for x86_64 and ARM64; static musl builds on Linux.
 - `SHA256SUMS` for all four assets; installer and updater verify downloads before replacement.
 
+### Updates
+
+Run `tako update` to install a newer published release. Opt into daily verified
+updates with `tako auto-update on`; inspect or disable them with `status` / `off`.
+macOS uses launchd and Linux uses a systemd user timer. Enable from the installed
+binary at its permanent path. The scheduling user needs write access there.
+Updates restart a running router and may interrupt requests. Settings and client
+keys are retained. Automatic updates are off by default.
+
+### Landing page
+
+The `landing/` folder contains a standalone static page ready for Cloudflare Pages.
+It needs no build command, dependencies, external fonts, or backend.
+
 ### Deployment notes
 
 tako serves HTTP. Use an HTTPS reverse proxy for internet hosting. Public listeners

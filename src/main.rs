@@ -1,4 +1,5 @@
 mod auth;
+mod auto_update;
 mod catalog;
 mod config;
 mod daemon;
@@ -35,6 +36,7 @@ usage: tako [command]     (no command opens the dashboard)
   disable      don't start at login
 
   update       update to the latest release
+  auto-update  on / off / status: opt into daily verified updates
   uninstall    remove tako
   run          run in the foreground
   version      print the version
@@ -76,6 +78,7 @@ fn main() {
         "enable" => done(daemon::enable()),
         "disable" => done(daemon::disable()),
         "update" | "upgrade" => daemon::update(),
+        "auto-update" => auto_update::command(&args[1..]),
         "uninstall" => daemon::uninstall(),
         "version" | "-V" | "--version" => {
             println!("tako {}", server::VERSION);

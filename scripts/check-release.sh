@@ -9,8 +9,10 @@ cargo build --locked
 python3 tests/dashboard.py
 python3 tests/auth.py
 python3 tests/installer.py
+python3 tests/auto_update.py
 npm ci --prefix tests --no-audit --no-fund
 node tests/web.cjs
+node tests/landing.cjs
 sh -n install.sh
 cargo build --release --locked
 target/release/tako version
