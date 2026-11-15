@@ -1,0 +1,6 @@
+target/
+.playwright-mcp/
+dist/
+__pycache__/
+*.pyc
+node_modules/

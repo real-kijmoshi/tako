@@ -1,0 +1,4 @@
+# Point this domain's DNS at your VPS. Allow inbound TCP 80 and 443.
+router.example.com {
+    reverse_proxy 127.0.0.1:20129
+}

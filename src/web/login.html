@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><title>Sign in · tako</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%20fill%3D%22none%22%3E%3Cpath%20fill%3D%22%231f5fbf%22%20d%3D%22M14%2030a18%2018%200%200%201%2036%200v7H14z%22%2F%3E%3Cg%20stroke%3D%22%231f5fbf%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%3E%3Cpath%20d%3D%22M16%2034C8%2034%204%2040%206%2045s8%205%2010%200M20%2036c-7%207-9%2017-3%2019%204%201%206-2%206-5M27%2037c-3%208-3%2019%202%2020M37%2037c3%208%203%2019-2%2020M29%2036c1%207-1%2011-4%2012M35%2036c-1%207%201%2011%204%2012M44%2036c7%207%209%2017%203%2019-4%201-6-2-6-5M48%2034c8%200%2012%206%2010%2011s-8%205-10%200%22%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2225%22%20cy%3D%2227%22%20r%3D%223%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2239%22%20cy%3D%2227%22%20r%3D%223%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E">
+<style>
+:root { color-scheme: light; --bg:#e9eae6; --surface:#f6f6f3; --text:#1a1d21; --muted:#4a4f57; --rule:#cfd1cb; --blue:#1f5fbf; --error:#b02c25; }
+@media(prefers-color-scheme:dark) { :root { color-scheme:dark; --bg:#121417; --surface:#1a1d21; --text:#e6e7e3; --muted:#b0b4ba; --rule:#30353c; --blue:#5b8fe0; --error:#f0756d; } }
+* { box-sizing:border-box; } [hidden] { display:none!important; }
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; min-height:100svh; display:grid; place-items:center; padding:24px 16px; }
+main { width:min(420px,100%); } .brand { display:flex; align-items:center; gap:12px; font:700 28px "DIN Alternate",Bahnschrift,sans-serif; margin:0 0 28px; }
+.tako-mark { width:36px; height:36px; flex:none; }
+.panel { background:var(--surface); border:1px solid var(--rule); border-top:3px solid var(--blue); border-radius:6px; padding:30px; }
+h1 { font:700 27px/1.2 "DIN Alternate",Bahnschrift,sans-serif; margin:0 0 8px; } p { color:var(--muted); margin:0 0 24px; }
+label { display:block; font-weight:600; margin-bottom:8px; } .password { position:relative; }
+input { font:inherit; font-size:16px; padding:12px 68px 12px 12px; width:100%; color:var(--text); background:var(--bg); border:1px solid var(--rule); border-radius:4px; }
+button { font:inherit; cursor:pointer; } input:focus-visible,button:focus-visible,a:focus-visible { outline:2px solid var(--blue); outline-offset:3px; }
+#show { position:absolute; right:8px; top:7px; padding:6px 8px; background:transparent; border:0; color:var(--blue); min-height:34px; }
+#submit { width:100%; margin-top:20px; padding:12px; min-height:46px; font-weight:600; color:#fff; background:#1f5fbf; border:1px solid #1f5fbf; border-radius:4px; }
+#submit:disabled { opacity:.65; cursor:wait; } #error { color:var(--error); margin:12px 0 0; } #error:empty { display:none; }
+.notice { font-size:13px; padding:12px; border:1px solid var(--rule); border-left:3px solid var(--blue); border-radius:4px; margin-bottom:20px; } #caps { margin:8px 0 0; font-size:12px; }
+details { margin-top:24px; border-top:1px solid var(--rule); padding-top:18px; color:var(--muted); font-size:13px; } summary { cursor:pointer; } details p { margin:12px 0 8px; } code { color:var(--text); font-family:ui-monospace,monospace; } .foot { margin:20px 0 0; font-size:12px; text-align:center; }
+@media(max-width:440px) { .panel { padding:24px; } }
+</style>
+</head>
+<body><main>
+<div class="brand"><svg class="tako-mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><path fill="#1f5fbf" d="M14 30a18 18 0 0 1 36 0v7H14z"/><g stroke="#1f5fbf" stroke-width="5" stroke-linecap="round"><path d="M16 34C8 34 4 40 6 45s8 5 10 0M20 36c-7 7-9 17-3 19 4 1 6-2 6-5M27 37c-3 8-3 19 2 20M37 37c3 8 3 19-2 20M29 36c1 7-1 11-4 12M35 36c-1 7 1 11 4 12M44 36c7 7 9 17 3 19-4 1-6-2-6-5M48 34c8 0 12 6 10 11s-8 5-10 0"/></g><circle cx="25" cy="27" r="3" fill="#fff"/><circle cx="39" cy="27" r="3" fill="#fff"/></svg>tako</div>
+<section class="panel" aria-labelledby="title">
+<h1 id="title">Welcome back</h1><p>Sign in to manage your AI router.</p>
+<p id="expired" class="notice" hidden>Your session ended. Sign in again to pick up where you left off.</p>
+<p id="transport" class="notice" hidden>This connection uses HTTP. Use your HTTPS address before entering your password.</p>
+<form id="login">
+<label for="password">Admin password</label>
+<div class="password"><input id="password" name="password" type="password" autocomplete="current-password" required autofocus aria-describedby="error caps"><button id="show" type="button" aria-label="Show password" aria-pressed="false">Show</button></div>
+<p id="caps" hidden>Caps Lock is on.</p><p id="error" role="alert"></p>
+<button id="submit" type="submit">Sign in</button>
+</form>
+<details><summary>Forgot your password?</summary><p>Reset it in your server terminal:</p><code>tako password</code><p>Use the same user and TAKO_HOME as your running router. This signs out existing sessions; your API keys keep working.</p></details>
+</section><p class="foot">Your admin password is separate from your client API keys.</p>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id), input = $('password'), button = $('submit');
+  $('expired').hidden = new URLSearchParams(location.search).get('session') !== 'expired';
+  $('transport').hidden = location.protocol === 'https:' || ['localhost','127.0.0.1','[::1]'].includes(location.hostname);
+  $('show').onclick = () => { const show = input.type === 'password'; input.type = show ? 'text' : 'password'; $('show').textContent = show ? 'Hide' : 'Show'; $('show').setAttribute('aria-label', show ? 'Hide password' : 'Show password'); $('show').setAttribute('aria-pressed', String(show)); input.focus(); };
+  input.addEventListener('keyup', e => $('caps').hidden = !e.getModifierState('CapsLock'));
+  input.addEventListener('input', () => { input.removeAttribute('aria-invalid'); $('error').textContent = ''; });
+  $('login').onsubmit = async e => {
+    e.preventDefault(); button.disabled = true; button.textContent = 'Signing in…'; $('error').textContent = '';
+    try {
+      const r = await fetch('/api/login', {method:'POST',headers:{'content-type':'application/json','x-tako':'1'},body:JSON.stringify({password:input.value})});
+      const v = await r.json(); if (!r.ok) throw Error(v.error?.message || 'Sign in failed. Try again.');
+      input.value = ''; location.replace('/ui' + location.hash);
+    } catch(e) { $('error').textContent = e instanceof TypeError ? 'Could not reach your router. Check your connection and try again.' : e.message; input.setAttribute('aria-invalid','true'); input.focus(); }
+    finally { button.disabled = false; button.textContent = 'Sign in'; }
+  };
+})();
+</script></body></html>

@@ -1,0 +1,6 @@
+{
+  "name": "tako-web-tests",
+  "private": true,
+  "scripts": { "test": "node web.cjs" },
+  "devDependencies": { "jsdom": "29.1.1" }
+}

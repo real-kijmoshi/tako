@@ -1,0 +1,1736 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tako dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%20fill%3D%22none%22%3E%3Cpath%20fill%3D%22%231f5fbf%22%20d%3D%22M14%2030a18%2018%200%200%201%2036%200v7H14z%22%2F%3E%3Cg%20stroke%3D%22%231f5fbf%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%3E%3Cpath%20d%3D%22M16%2034C8%2034%204%2040%206%2045s8%205%2010%200M20%2036c-7%207-9%2017-3%2019%204%201%206-2%206-5M27%2037c-3%208-3%2019%202%2020M37%2037c3%208%203%2019-2%2020M29%2036c1%207-1%2011-4%2012M35%2036c-1%207%201%2011%204%2012M44%2036c7%207%209%2017%203%2019-4%201-6-2-6-5M48%2034c8%200%2012%206%2010%2011s-8%205-10%200%22%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2225%22%20cy%3D%2227%22%20r%3D%223%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2239%22%20cy%3D%2227%22%20r%3D%223%22%20fill%3D%22%23fff%22%2F%3E%3C%2Fsvg%3E">
+<style>
+/* tako: transit control room. DIN signage type, concrete + transit blue, one dark departures board. */
+:root {
+  color-scheme: light;
+  --bg: #e9eae6;
+  --surface: #f6f6f3;
+  --surface-2: #eeefeb;
+  --rule: #cfd1cb;
+  --rule-soft: #dfe0db;
+  --text: #1a1d21;
+  --text-2: #4a4f57;
+  --muted: #80858c;
+  --blue: #1f5fbf;
+  --blue-soft: #dbe5f5;
+  --board: #1b2230;
+  --board-2: #242c3c;
+  --board-rule: #303a4d;
+  --flap: #f5b841;
+  --flap-dim: #8d98ab;
+  --good: #2e8b46;
+  --good-text: #23733a;
+  --warning: #d9960f;
+  --warning-text: #95650a;
+  --serious: #d66a2c;
+  --serious-text: #a54c18;
+  --critical: #c7362f;
+  --critical-text: #b02c25;
+  --sign: "DIN Alternate", "DIN 2014", "DIN Next", Bahnschrift, "D-DIN", "Arial Narrow", sans-serif;
+  --body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* legacy names the script still references */
+  --accent: var(--blue); --accent-soft: var(--blue-soft); --border: var(--rule);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121417; --surface: #1a1d21; --surface-2: #20242a; --rule: #30353c; --rule-soft: #262a30;
+    --text: #e6e7e3; --text-2: #b0b4ba; --muted: #7a8088;
+    --blue: #5b8fe0; --blue-soft: #1d2a40;
+    --board: #0c1018; --board-2: #151b26; --board-rule: #232c3b;
+    --good: #3fae5b; --good-text: #5cc777; --warning-text: #e9b13c; --serious-text: #ec8a52; --critical: #e0524a; --critical-text: #f0756d;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121417; --surface: #1a1d21; --surface-2: #20242a; --rule: #30353c; --rule-soft: #262a30;
+  --text: #e6e7e3; --text-2: #b0b4ba; --muted: #7a8088;
+  --blue: #5b8fe0; --blue-soft: #1d2a40;
+  --board: #0c1018; --board-2: #151b26; --board-rule: #232c3b;
+  --good: #3fae5b; --good-text: #5cc777; --warning-text: #e9b13c; --serious-text: #ec8a52; --critical: #e0524a; --critical-text: #f0756d;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 var(--body); -webkit-font-smoothing: antialiased; min-height: 100vh; }
+button { font: inherit; color: inherit; }
+code { font: .9em var(--mono); background: var(--surface-2); border: 1px solid var(--rule-soft); padding: 0 5px; border-radius: 3px; }
+a { color: var(--blue); }
+[hidden] { display: none !important; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.spacer { flex: 1; }
+
+/* ---------- sidebar: the route line ---------- */
+.wrap { max-width: 1480px; padding: 0 32px 64px 252px; }
+.sidebar { position: fixed; inset: 0 auto 0 0; width: 220px; padding: 26px 20px 22px; background: var(--surface); border-right: 1px solid var(--rule); display: flex; flex-direction: column; z-index: 5; }
+.brand { display: flex; align-items: center; gap: 10px; font: 700 23px/1 var(--sign); letter-spacing: .01em; margin: 0 0 34px; }
+.tako-mark { width: 32px; height: 32px; flex: none; }
+@keyframes orbit { to { transform: rotate(360deg); } }
+.sidebar nav { position: relative; display: grid; padding-left: 22px; }
+.sidebar nav::before { content: ""; position: absolute; left: 6px; top: 20px; bottom: 20px; width: 3px; background: var(--rule); border-radius: 2px; }
+.nav { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 8px; background: none; border: 0; text-align: left; cursor: pointer; color: var(--text-2); font: 500 15px var(--sign); letter-spacing: .01em; }
+.nav::before { content: ""; position: absolute; left: -21px; top: 50%; width: 11px; height: 11px; margin-top: -5.5px; border-radius: 50%; background: var(--surface); border: 2.5px solid var(--rule); transition: border-color .2s; }
+.nav:hover { color: var(--text); }
+.nav:hover::before { border-color: var(--muted); }
+.nav.active { color: var(--text); font-weight: 700; }
+.nav kbd { margin-left: auto; font: 11px var(--mono); color: var(--muted); }
+.nav-ind { position: absolute; left: 1px; top: 0; width: 13px; height: 13px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 3px var(--surface); z-index: 1;
+  transition: transform .5s cubic-bezier(.65, 0, .25, 1); opacity: 0; pointer-events: none; }
+.sidebar-foot { margin-top: auto; color: var(--muted); font-size: 12px; line-height: 1.6; padding-top: 16px; border-top: 1px solid var(--rule); }
+
+/* ---------- header ---------- */
+header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+.meta { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; font-size: 12.5px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.pill { display: inline-flex; align-items: center; gap: 7px; }
+.pill.state { font: 700 13px var(--sign); color: var(--good-text); letter-spacing: .02em; }
+.offline .pill.state { color: var(--critical-text); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); animation: beat 2s ease-in-out infinite; }
+.offline .dot { background: var(--critical); animation: none; }
+@keyframes beat { 50% { opacity: .35; } }
+.endpoint { display: flex; gap: 6px; flex-wrap: wrap; }
+.copy { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 4px; background: var(--surface); border: 1px solid var(--rule); font: 12.5px var(--mono); color: var(--text); cursor: pointer; max-width: 100%; overflow: hidden; }
+.copy:hover { border-color: var(--blue); }
+.copy b { font: 700 12px var(--sign); color: var(--muted); letter-spacing: .02em; }
+.copy .ci { width: 13px; height: 13px; color: var(--muted); }
+.copy.done { border-color: var(--good); }
+.copy.done .ci { color: var(--good); }
+.icon-btn { width: 32px; height: 32px; border-radius: 4px; border: 1px solid var(--rule); background: var(--surface); cursor: pointer; display: grid; place-items: center; }
+.icon-btn:hover { border-color: var(--blue); }
+
+.banner { display: none; align-items: center; gap: 10px; padding: 11px 14px; margin-top: 18px; border-radius: 4px; background: var(--surface); border: 1px solid var(--critical); border-left-width: 4px; }
+.offline .banner { display: flex; }
+.banner .spin { width: 14px; height: 14px; border: 2px solid var(--critical); border-top-color: transparent; border-radius: 50%; animation: spin .9s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.warnings { margin-top: 16px; display: grid; gap: 8px; }
+.warnings:empty { display: none; }
+.warnings div { padding: 9px 13px; border-radius: 4px; background: var(--surface); border: 1px solid var(--rule); border-left: 4px solid var(--warning); color: var(--text-2); font-size: 13px; }
+
+/* ---------- headings ---------- */
+.page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 30px 0 22px; flex-wrap: wrap; }
+h1 { font: 700 34px/1.1 var(--sign); letter-spacing: -.005em; margin: 0 0 6px; }
+.description { margin: 0; color: var(--text-2); max-width: 64ch; }
+
+/* ---------- panels ---------- */
+.grid { display: grid; gap: 16px; }
+.two { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); margin-bottom: 16px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 18px; min-width: 0; }
+.card h2 { margin: 0 0 14px; font: 700 15px var(--sign); letter-spacing: .01em; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card h2 .count { font: 400 12.5px var(--body); color: var(--muted); }
+.card h2 .act { margin-left: auto; }
+.card > .description { margin-bottom: 12px; font-size: 13px; }
+
+/* ---------- stats strip ---------- */
+.token-kpis.kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; margin-bottom: 16px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+.kpi { position: relative; padding: 14px 18px 16px; border-left: 1px solid var(--rule); min-width: 0; overflow: hidden; }
+.kpi:first-child { border-left: 0; }
+.kpi .label { font-size: 12.5px; color: var(--text-2); }
+.kpi .value { font: 700 34px/1.1 var(--sign); margin-top: 6px; font-variant-numeric: tabular-nums; position: relative; }
+.kpi .value small { font-size: 16px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+.kpi .sub { font-size: 12px; color: var(--muted); margin-top: 2px; min-height: 18px; position: relative; }
+.kpi.hl .value { color: var(--good-text); }
+.kpi.bad .value { color: var(--critical-text); }
+.kpi.bad::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--critical); }
+.spark { position: absolute; right: 14px; top: 16px; width: 38%; height: 30px; pointer-events: none; }
+.spark .area { fill: var(--blue-soft); }
+.spark .line { fill: none; stroke: var(--blue); stroke-width: 1.5; stroke-linejoin: round; }
+.bump { animation: none; }
+
+/* ---------- traffic chart ---------- */
+.chart { position: relative; height: 184px; display: flex; align-items: flex-end; padding-left: 30px; }
+.chart .axis { position: absolute; left: 0; top: 0; bottom: 18px; width: 100%; pointer-events: none; }
+.chart .axis div { position: absolute; left: 30px; right: 0; border-top: 1px solid var(--rule-soft); font-size: 10.5px; color: var(--muted); }
+.chart .axis div:last-child { border-top-color: var(--rule); }
+.chart .axis span { position: absolute; top: -8px; left: -30px; width: 24px; text-align: right; font-variant-numeric: tabular-nums; }
+.bars { flex: 1; display: flex; align-items: flex-end; gap: 2px; height: calc(100% - 18px); position: relative; }
+.bar { flex: 1; display: flex; flex-direction: column-reverse; gap: 1px; height: 100%; position: relative; cursor: default; }
+.bar .seg { width: 100%; transition: height .6s cubic-bezier(.2, .7, .2, 1); min-height: 0; }
+.bar .ok { background: var(--blue); }
+.bar .fail { background: var(--critical); }
+.bar:hover .seg { opacity: .75; }
+.bar::before { content: ""; position: absolute; inset: 0 -1px; }
+.xlabels { position: absolute; left: 30px; right: 0; bottom: 0; display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); }
+.legend { display: flex; gap: 14px; white-space: nowrap; font: 400 12px var(--body); color: var(--text-2); margin-left: auto; }
+.legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+.tip { position: fixed; pointer-events: none; z-index: 30; background: var(--board); color: #fff; padding: 7px 10px; border-radius: 4px; font-size: 12px; line-height: 1.5; opacity: 0; transition: opacity .12s; white-space: nowrap; }
+.tip.on { opacity: 1; }
+.empty { color: var(--muted); font-size: 13px; padding: 18px 0; text-align: center; }
+
+
+/* ---------- live routing map (signal-box panel) ---------- */
+.netmap { background: var(--board); border-color: var(--board); color: #e8ecf3; padding: 0; margin-bottom: 16px; overflow: hidden; position: relative; }
+.netmap::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px); }
+.netmap-head { display: flex; align-items: center; gap: 14px; padding: 16px 18px 0; flex-wrap: wrap; }
+.netmap-head h2 { margin: 0; color: #fff; }
+.netmap-head .count { color: var(--flap-dim); }
+.netmap .legend { color: var(--flap-dim); }
+.netmap .legend i { border-radius: 50%; }
+#netmap { display: block; width: 100%; }
+#netmap text { font-family: var(--mono); font-size: 12.5px; fill: #c9d1de; }
+#netmap .nm-title { font: 700 13px var(--sign); fill: #fff; letter-spacing: .03em; }
+#netmap .nm-sub { fill: var(--flap-dim); font-size: 10.5px; }
+#netmap .nm-why { font: 600 10.5px var(--body); }
+#netmap .trk { fill: none; stroke: var(--board-rule); stroke-linecap: round; transition: stroke-width .8s, stroke .4s; }
+#netmap .trk.used { stroke: #3b4a63; }
+#netmap .trk.down { stroke-dasharray: 2 6; stroke: #4a2a30; }
+#netmap .stn { fill: var(--board); stroke-width: 3; stroke: var(--flap-dim); transition: stroke .3s, fill .3s; }
+#netmap .ok .stn { stroke: var(--good); }
+#netmap .warn .stn { stroke: var(--warning); }
+#netmap .benched .stn { stroke: var(--critical); }
+#netmap .benched .nm-why { fill: #ff8f88; } #netmap .warn .nm-why { fill: var(--flap); }
+#netmap .cd { fill: none; stroke: var(--critical); stroke-width: 2; transform: rotate(-90deg); transform-box: fill-box; transform-origin: center; transition: stroke-dashoffset .3s linear; }
+#netmap .hub-ring { fill: none; stroke: var(--blue); stroke-width: 4; }
+#netmap .hub-orbit { transform-box: view-box; animation: orbit var(--spin, 8s) linear infinite; }
+#netmap .hub-moon { fill: var(--flap); }
+#netmap .hub-num { font: 700 20px var(--sign); fill: #fff; text-anchor: middle; }
+#netmap .hub-unit { fill: var(--flap-dim); font-size: 9.5px; text-anchor: middle; }
+#netmap .client { fill: var(--board-2); stroke: #3b4a63; stroke-width: 1.5; }
+#netmap .train { fill: var(--flap); }
+#netmap .train-glow { fill: var(--flap); opacity: .22; }
+#netmap .burst { fill: none; stroke-width: 2; transform-box: fill-box; transform-origin: center; }
+#netmap .float { font: 700 12px var(--sign); letter-spacing: .03em; }
+#netmap .empty-msg { fill: var(--flap-dim); font: 14px var(--body); }
+
+/* ---------- departures board (live requests) ---------- */
+.board-card { background: var(--board); border-color: var(--board); color: #e8ecf3; padding: 0; overflow: hidden; }
+.board-card h2 { color: #fff; padding: 16px 18px 0; }
+.board-card h2 .count { color: var(--flap-dim); }
+.board-card .toolbar { padding: 0 18px; margin-bottom: 12px; }
+.board-card input, .board-card select { background: var(--board-2); border-color: var(--board-rule); color: #e8ecf3; }
+.board-head, .req { display: grid; grid-template-columns: 74px minmax(70px, .8fr) minmax(0, 1.6fr) 104px; gap: 12px; align-items: baseline; padding: 0 18px; }
+.board-head { font: 500 12px var(--sign); color: var(--flap-dim); padding-bottom: 7px; border-bottom: 1px solid var(--board-rule); letter-spacing: .03em; }
+.feed { max-height: 470px; overflow-y: auto; scrollbar-color: var(--board-rule) transparent; }
+.req { padding-top: 9px; padding-bottom: 9px; border-bottom: 1px solid var(--board-rule); }
+.req:hover { background: var(--board-2); }
+.req .time { font: 600 14px var(--sign); color: var(--flap); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.req .route { font: 700 14px var(--sign); color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: .02em; }
+.req .via { min-width: 0; }
+.req .served { font: 13px var(--mono); color: #e8ecf3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.req .served small { color: var(--flap-dim); margin-left: 8px; font-size: 11.5px; }
+.steps { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; }
+.step { font: 11.5px var(--mono); color: var(--flap-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.step.failed { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--critical) 70%, transparent); }
+.step .st { font-weight: 700; margin-right: 5px; text-decoration: none; display: inline-block; }
+.step.failed .st { color: #ff8f88; }
+.step > span:last-child { margin-left: 6px; }
+.arrow { display: none; }
+.status { justify-self: start; font: 700 12.5px var(--sign); letter-spacing: .06em; padding: 3px 8px 2px; border-radius: 2px; background: var(--board-2); color: #7fdc95; text-transform: uppercase; }
+.status.diverted { color: var(--flap); }
+.status.failed { color: #ff8f88; }
+/* split-flap: each cell of a new row flips down into place */
+.req.enter > * { animation: flap .5s cubic-bezier(.3, .6, .3, 1) both; transform-origin: 50% 0; }
+.req.enter > :nth-child(2) { animation-delay: .07s; } .req.enter > :nth-child(3) { animation-delay: .14s; } .req.enter > :nth-child(4) { animation-delay: .21s; }
+@keyframes flap { 0% { transform: perspective(300px) rotateX(-90deg); opacity: .2; } 60% { transform: perspective(300px) rotateX(12deg); opacity: 1; } 100% { transform: none; } }
+.board-empty { padding: 30px 18px 34px; color: var(--flap-dim); font-size: 13px; }
+.board-empty b { display: block; font: 700 18px var(--sign); color: var(--flap); margin-bottom: 6px; letter-spacing: .03em; }
+.board-empty b::after { content: "_"; animation: beat 1s steps(1) infinite; }
+
+/* ---------- fallback chains: line diagram ---------- */
+.combo { padding: 10px 0 14px; border-top: 1px solid var(--rule-soft); }
+.combo:first-of-type { border-top: 0; padding-top: 0; }
+.combo-name { display: flex; align-items: center; gap: 8px; font: 700 15px var(--sign); margin-bottom: 12px; }
+.tag { font: 500 11.5px var(--body); padding: 1px 7px; border-radius: 3px; background: var(--blue-soft); color: var(--blue); white-space: nowrap; }
+.chain { display: flex; }
+.node { position: relative; flex: 1 1 0; min-width: 0; padding-top: 20px; font: 11.5px var(--mono); color: var(--text-2); }
+.node::before { content: ""; position: absolute; top: 5px; left: 0; right: 0; height: 4px; background: var(--blue); }
+.node:last-child::before { right: auto; width: 7px; }
+.node .nd { position: absolute; top: 0; left: 0; width: 14px; height: 14px; border-radius: 50%; background: var(--surface); border: 3px solid var(--blue); }
+.node .lbl { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 10px; }
+.node .why { display: block; font: 500 11px var(--body); color: var(--critical-text); }
+.node.ok .nd { border-color: var(--good); }
+.node.warn .nd { border-color: var(--warning); }
+.node.warn .why { color: var(--warning-text); }
+.node.benched::before { background: repeating-linear-gradient(90deg, var(--rule) 0 6px, transparent 6px 10px); }
+.node.benched .nd { border-color: var(--critical); }
+.node.benched .nd::after { content: ""; position: absolute; inset: 2px; background: linear-gradient(45deg, transparent 42%, var(--critical) 42% 58%, transparent 58%); }
+.node.live { color: var(--text); font-weight: 600; }
+.node.live .nd { background: var(--good); border-color: var(--good); }
+.node.live .nd::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--good); animation: arrive 1.4s ease-out infinite; }
+@keyframes arrive { from { transform: scale(1); opacity: .8; } to { transform: scale(2.1); opacity: 0; } }
+.link { display: none; }
+
+/* ---------- benched ---------- */
+.bench { display: grid; gap: 0; }
+.bitem { padding: 10px 0 12px; border-top: 1px solid var(--rule-soft); }
+.bitem:first-child { border-top: 0; padding-top: 0; }
+.bitem .top { display: flex; align-items: center; gap: 8px; }
+.bitem .who { font: 12px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.bitem .left { font: 600 13px var(--sign); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.track { height: 4px; background: var(--rule-soft); margin-top: 8px; overflow: hidden; }
+.track div { height: 100%; transition: width .3s linear; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.chip svg { width: 11px; height: 11px; }
+.s-critical { color: var(--critical-text); } .track .s-critical { background: var(--critical); }
+.s-warning { color: var(--warning-text); } .track .s-warning { background: var(--warning); }
+.s-serious { color: var(--serious-text); } .track .s-serious { background: var(--serious); }
+.s-neutral { color: var(--text-2); } .track .s-neutral { background: var(--muted); }
+.s-good { color: var(--good-text); }
+.allclear { display: flex; align-items: flex-start; gap: 10px; color: var(--text-2); font-size: 13px; }
+.allclear svg { color: var(--good); flex: none; width: 18px; height: 18px; margin-top: 1px; }
+
+/* ---------- buttons & forms ---------- */
+.btn { padding: 7px 12px; border-radius: 4px; border: 1px solid var(--rule); background: var(--surface); cursor: pointer; font: 500 13px var(--body); white-space: nowrap; }
+.btn:hover { border-color: var(--blue); color: var(--blue); }
+.btn:active { transform: translateY(1px); }
+.btn.sm { padding: 2px 8px; font-size: 12px; }
+.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+.primary:hover { color: #fff; background: color-mix(in srgb, var(--blue) 86%, #000); }
+.danger { color: var(--critical-text); }
+.danger:hover { border-color: var(--critical); color: var(--critical-text); }
+button:disabled { opacity: .45; cursor: wait; }
+.toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+input, select, textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--rule); border-radius: 4px; padding: 8px 11px; max-width: 100%; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue); outline-offset: -1px; border-color: var(--blue); }
+input[type=checkbox] { accent-color: var(--blue); width: 15px; height: 15px; padding: 0; }
+input[type=search] { min-width: 240px; }
+label.field { display: grid; gap: 5px; color: var(--text-2); font-size: 12.5px; margin-bottom: 14px; }
+label.field input, label.field select, label.field textarea { width: 100%; }
+
+/* ---------- table ---------- */
+.tablewrap { overflow-x: auto; margin: 0 -18px; padding: 0 18px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font: 500 12.5px var(--sign); color: var(--muted); padding: 0 12px 8px 0; white-space: nowrap; letter-spacing: .02em; }
+td { padding: 9px 12px 9px 0; border-top: 1px solid var(--rule-soft); vertical-align: middle; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.mono { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.rate { width: 90px; height: 6px; background: var(--rule-soft); overflow: hidden; display: flex; gap: 1px; }
+.rate .ok { background: var(--blue); transition: width .6s ease; }
+.rate .fail { background: var(--critical); transition: width .6s ease; }
+.lasterr { color: var(--muted); font-size: 12px; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- failure kinds ---------- */
+.kinds { display: grid; gap: 9px; }
+.krow { display: grid; grid-template-columns: 130px minmax(0, 1fr) 36px; align-items: center; gap: 10px; font-size: 12.5px; }
+.krow .kb { height: 8px; transition: width .6s cubic-bezier(.2, .7, .2, 1); }
+.krow .kn { text-align: right; font: 600 13px var(--sign); font-variant-numeric: tabular-nums; color: var(--text-2); }
+
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translate(-50%, 16px); background: var(--board); color: #fff; padding: 9px 16px; border-radius: 4px; border-left: 4px solid var(--flap);
+  font-size: 13px; opacity: 0; transition: opacity .2s, transform .25s; pointer-events: none; z-index: 40; max-width: calc(100% - 32px); }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- workspace pages ---------- */
+.provider-grid, .connect-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.provider-card { display: flex; flex-direction: column; gap: 10px; }
+.provider-card h3 { margin: 0; font: 700 17px var(--sign); }
+.provider-top { display: flex; align-items: center; gap: 10px; }
+.provider-icon { width: 34px; height: 34px; border-radius: 4px; display: grid; place-items: center; background: var(--board); color: var(--flap); font: 700 14px var(--sign); letter-spacing: .04em; flex: none; }
+.provider-card.connected .provider-icon { background: var(--blue); color: #fff; }
+.provider-card p { color: var(--text-2); margin: 0; }
+.provider-card .toolbar { margin: auto 0 0; padding-top: 4px; }
+.detail { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.section-label { display: flex; align-items: baseline; gap: 10px; margin: 26px 0 12px; font: 700 17px var(--sign); }
+.section-label .count { color: var(--muted); font: 400 13px var(--body); }
+.empty-state { padding: 36px 24px; text-align: center; }
+.empty-state h3 { font: 700 20px var(--sign); margin: 0 0 8px; }
+.empty-state p { color: var(--text-2); margin: 0 0 18px; }
+.split { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
+.combo-choice { width: 100%; padding: 13px 14px; border: 1px solid var(--rule); border-left-width: 4px; background: var(--surface); border-radius: 4px; text-align: left; cursor: pointer; margin-bottom: 8px; }
+.combo-choice:hover { border-color: var(--muted); }
+.combo-choice.active { border-color: var(--blue); }
+.combo-choice strong { display: block; margin-bottom: 3px; font: 700 15px var(--sign); }
+/* combo editor: the line drawn vertically, first stop is the terminus */
+.route-row { position: relative; display: flex; align-items: center; gap: 14px; padding: 12px 0; }
+.route-row::before { content: ""; position: absolute; left: 12px; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: var(--blue); }
+.route-row:first-child::before { top: 50%; }
+.route-row:last-child::before { bottom: 50%; }
+.route-row:only-child::before { display: none; }
+.route-row .number { position: relative; width: 24px; height: 24px; display: grid; place-items: center; background: var(--surface); border: 3px solid var(--blue); color: var(--text); border-radius: 50%; flex: none; font: 700 11px var(--sign); }
+.route-row:first-child .number { background: var(--blue); color: #fff; }
+.route-row .target { flex: 1; min-width: 0; overflow-wrap: anywhere; font: 13px var(--mono); padding: 6px 0; border-bottom: 1px solid var(--rule-soft); }
+.route-row .controls { display: flex; gap: 4px; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--board); color: #e8ecf3; border-radius: 4px; padding: 14px 16px; font: 12px/1.7 var(--mono); margin: 12px 0 0; }
+.log-box { height: 62vh; overflow: auto; margin: 0; padding: 12px 0; }
+.log-line { display: block; padding: 0 16px; border-left: 3px solid transparent; }
+.log-line.err { color: #ff8f88; border-left-color: var(--critical); }
+.log-line.warn { color: var(--flap); border-left-color: var(--flap); }
+.log-line.ok { }
+.log-line mark { background: var(--flap); color: var(--board); border-radius: 2px; }
+
+/* ---------- chat ---------- */
+#chat-history { min-height: 320px; max-height: 56vh; overflow-y: auto; padding: 4px 0; }
+.message { width: fit-content; max-width: 78%; padding: 10px 14px; border-radius: 6px; margin: 12px 0; background: var(--surface-2); border: 1px solid var(--rule-soft); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.message.user { margin-left: auto; background: var(--blue); border-color: var(--blue); color: #fff; }
+.message.user small { color: rgba(255, 255, 255, .75); }
+.message small { display: block; font: 600 12px var(--sign); color: var(--muted); margin-bottom: 3px; letter-spacing: .02em; }
+.message.pop { animation: arrive-msg .25s ease-out both; }
+@keyframes arrive-msg { from { opacity: 0; transform: translateY(6px); } }
+.typing { display: inline-flex; gap: 4px; align-items: center; }
+.typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: beat 1s ease-in-out infinite; }
+.typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+.typing span { margin-left: 8px; font-size: 12.5px; color: var(--muted); }
+.chat-compose { display: flex; align-items: end; gap: 10px; padding-top: 14px; border-top: 1px solid var(--rule); }
+.chat-compose textarea { flex: 1; min-height: 76px; resize: vertical; }
+.inline-error { color: var(--critical-text); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.inline-error:empty { display: none; }
+
+/* ---------- dialog ---------- */
+dialog { color: var(--text); background: var(--surface); border: 1px solid var(--rule); border-top: 4px solid var(--blue); border-radius: 6px; padding: 22px 24px; width: min(600px, calc(100% - 32px)); max-height: 86vh; }
+dialog[open] { animation: arrive-msg .2s ease-out; }
+dialog::backdrop { background: rgba(10, 14, 22, .55); }
+dialog h2 { margin: 0 0 6px; font: 700 22px var(--sign); }
+dialog .description { margin-bottom: 18px; }
+.dialog-actions { display: flex; justify-content: end; gap: 8px; margin-top: 20px; }
+.model-list { max-height: 36vh; overflow-y: auto; border: 1px solid var(--rule); border-radius: 4px; }
+.model-option { display: flex; gap: 10px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--rule-soft); font: 12px var(--mono); overflow-wrap: anywhere; cursor: pointer; }
+.model-option:last-child { border-bottom: 0; }
+.model-option span:first-of-type { flex: 1; min-width: 0; }
+.model-option:hover { background: var(--surface-2); }
+.model-option:has(input:checked) { background: var(--blue-soft); }
+#dialog-error { margin-top: 12px; }
+.skeleton { height: 14px; margin: 14px 12px; border-radius: 2px; background: var(--rule-soft); animation: beat 1.2s ease-in-out infinite; }
+.skeleton:nth-child(even) { width: 60%; }
+
+
+/* ---------- icons & provider logos ---------- */
+.ic { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn .ic { width: 15px; height: 15px; }
+.btn.sm .ic { width: 13px; height: 13px; }
+.btn.icon { padding: 6px; }
+.card h2 > .ic, .section-label > .ic { color: var(--muted); width: 16px; height: 16px; }
+.board-card h2 > .ic, .netmap-head h2 > .ic { color: var(--flap); }
+.netmap-head h2 { display: flex; align-items: center; gap: 8px; }
+.kpi .label { display: flex; align-items: center; gap: 7px; }
+.kpi .label .ic { width: 15px; height: 15px; color: var(--muted); }
+.kpi.hl .label .ic { color: var(--good); } .kpi.bad .label .ic { color: var(--critical); }
+.meta .ic { width: 14px; height: 14px; color: var(--muted); }
+.plogo { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: #fff; border: 1px solid rgba(16, 24, 40, .1); flex: none; vertical-align: middle; color: #111; overflow: hidden; }
+.plogo svg { width: 64%; height: 64%; fill: var(--brand, currentColor); }
+.plogo.mono { background: var(--brand); border-color: transparent; color: #fff; font: 700 10px/1 var(--sign); letter-spacing: .02em; }
+.plogo.sm { width: 18px; height: 18px; border-radius: 5px; } .plogo.sm.mono { font-size: 8.5px; }
+.plogo.lg { width: 42px; height: 42px; border-radius: 10px; box-shadow: 0 1px 2px rgba(16, 24, 40, .06); } .plogo.lg.mono { font-size: 15px; }
+.with-logo { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+.with-logo > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.req .served { display: flex; align-items: center; gap: 8px; }
+.node .lbl { display: flex; align-items: center; gap: 6px; }
+.node .lbl > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.route-row .target { display: flex; align-items: center; gap: 10px; }
+.provider-card .tag.ok { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good-text); }
+.connect-grid h2 .plogo, .connect-grid h2 .tool { margin-right: 2px; }
+.tool { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: var(--surface-2); border: 1px solid var(--rule); color: var(--text-2); }
+.tool .ic { width: 15px; height: 15px; }
+.empty-state .big-ic { width: 46px; height: 46px; margin: 0 auto 14px; border-radius: 12px; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue); }
+.empty-state .big-ic .ic { width: 22px; height: 22px; }
+/* nav: icons + sliding highlight */
+.sidebar nav { padding-left: 0; gap: 2px; }
+.sidebar nav::before, .nav::before { display: none; }
+.nav { gap: 11px; padding: 9px 10px; border-radius: 8px; font: 500 15px var(--sign); transition: color .2s, background .2s; }
+.nav .ic { width: 18px; height: 18px; color: var(--muted); transition: color .2s; }
+.nav:hover { background: var(--surface-2); }
+.nav.active { background: transparent; }
+.nav.active .ic { color: var(--blue); }
+.nav-ind { left: 0; width: 100%; border-radius: 8px; background: var(--blue-soft); box-shadow: none; z-index: 0; transition: transform .45s cubic-bezier(.65, 0, .25, 1), height .3s; }
+.nav-ind::after { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--blue); }
+.icon-btn .ic { width: 16px; height: 16px; }
+
+
+/* ---------- command menu ---------- */
+.cmdk-btn { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 7px 0 11px; min-width: 150px; border-radius: 8px; border: 1px solid var(--rule); background: var(--surface); color: var(--muted); cursor: pointer; font: 13px var(--body); transition: border-color .2s, box-shadow .2s; }
+.cmdk-btn:hover { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+.cmdk-btn kbd, .cmdk-foot kbd, .dr-foot kbd { margin-left: auto; font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--rule); background: var(--surface-2); color: var(--text-2); }
+.cmdk { position: fixed; inset: 0; z-index: 60; display: grid; justify-items: center; align-items: start; padding-top: 12vh; background: rgba(10, 14, 22, .45); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: fadein .15s ease; }
+@keyframes fadein { from { opacity: 0; } }
+.cmdk-box { width: min(640px, calc(100% - 32px)); background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.5), 0 0 0 1px rgba(0,0,0,.03); overflow: hidden; animation: cmdkin .22s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes cmdkin { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
+.cmdk-input { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--rule); color: var(--muted); }
+.cmdk-input input { flex: 1; border: 0; background: transparent; font-size: 16px; padding: 2px 0; outline: none !important; box-shadow: none; color: var(--text); }
+.cmdk-list { max-height: min(420px, 56vh); overflow-y: auto; padding: 6px; }
+.cmdk-group { font: 600 11.5px var(--body); color: var(--muted); padding: 10px 10px 4px; }
+.cmdk-item { display: flex; align-items: center; gap: 11px; width: 100%; padding: 9px 10px; border: 0; background: none; border-radius: 8px; cursor: pointer; text-align: left; font: 14px var(--body); color: var(--text); }
+.cmdk-item .ic { color: var(--muted); }
+.cmdk-item .hint { margin-left: auto; font-size: 12px; color: var(--muted); }
+.cmdk-item.on { background: var(--blue-soft); }
+.cmdk-item.on .ic { color: var(--blue); }
+.cmdk-empty { padding: 26px; text-align: center; color: var(--muted); }
+.cmdk-foot { display: flex; gap: 14px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--rule); background: var(--surface-2); font-size: 12px; color: var(--muted); }
+.cmdk-foot kbd { margin: 0 4px 0 0; }
+
+/* ---------- request inspector drawer ---------- */
+.scrim { position: fixed; inset: 0; z-index: 50; background: rgba(10, 14, 22, .35); opacity: 0; pointer-events: none; transition: opacity .25s; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 55; width: min(520px, 100%); background: var(--surface); border-left: 1px solid var(--rule); box-shadow: -30px 0 80px -30px rgba(0,0,0,.45);
+  transform: translateX(104%); transition: transform .38s cubic-bezier(.2,.8,.2,1); display: flex; flex-direction: column; }
+.drawer.on { transform: none; }
+.dr-head { display: flex; align-items: center; gap: 10px; padding: 18px 20px; border-bottom: 1px solid var(--rule); }
+.dr-head h3 { margin: 0; font: 700 20px var(--sign); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dr-body { flex: 1; overflow-y: auto; padding: 18px 20px 28px; }
+.dr-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin-bottom: 22px; }
+.dr-facts div { background: var(--surface); padding: 10px 12px; }
+.dr-facts span { display: block; font-size: 11.5px; color: var(--muted); }
+.dr-facts b { font: 700 18px var(--sign); font-variant-numeric: tabular-nums; }
+.dr-sec { font: 700 14px var(--sign); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.wf { display: grid; gap: 4px; margin-bottom: 22px; }
+.wf-row { display: grid; grid-template-columns: minmax(0, 1fr) 1.2fr; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule-soft); animation: arrive-msg .35s ease-out both; }
+.wf-row:nth-child(2) { animation-delay: .06s } .wf-row:nth-child(3) { animation-delay: .12s } .wf-row:nth-child(4) { animation-delay: .18s }
+.wf-who { min-width: 0; }
+.wf-who .with-logo { font: 12.5px var(--mono); }
+.wf-who small { display: block; margin: 3px 0 0 26px; font-size: 12px; color: var(--muted); }
+.wf-who small b { font-weight: 700; margin-right: 4px; }
+.wf-track { position: relative; height: 22px; background: var(--surface-2); border-radius: 4px; }
+.wf-bar { position: absolute; top: 4px; bottom: 4px; border-radius: 3px; min-width: 3px; transform-origin: left; animation: grow .6s cubic-bezier(.2,.8,.2,1) both; }
+.wf-bar.ok { background: var(--good); } .wf-bar.fail { background: var(--critical); }
+.wf-bar span { position: absolute; left: calc(100% + 6px); top: -1px; font: 11.5px var(--mono); color: var(--text-2); white-space: nowrap; }
+.wf-bar.in span { left: auto; right: 6px; color: #fff; font-weight: 600; }
+@keyframes grow { from { transform: scaleX(0); } }
+.dr-route { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 22px; }
+.dr-route .hop { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 6px; border: 1px solid var(--rule); font: 12px var(--mono); }
+.dr-route .hop.fail { border-color: color-mix(in srgb, var(--critical) 45%, var(--rule)); color: var(--critical-text); text-decoration: line-through; }
+.dr-route .hop.ok { border-color: color-mix(in srgb, var(--good) 50%, var(--rule)); background: color-mix(in srgb, var(--good) 8%, transparent); }
+.dr-route .ic { color: var(--muted); width: 14px; height: 14px; }
+.drawer details summary { cursor: pointer; color: var(--text-2); font-size: 13px; }
+.drawer pre { max-height: 260px; overflow: auto; }
+.req { cursor: pointer; }
+.req .open-ic { opacity: 0; transition: opacity .2s; }
+
+/* ---------- provider live stats ---------- */
+.pstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--rule-soft); border: 1px solid var(--rule-soft); border-radius: 6px; overflow: hidden; }
+.pstats div { background: var(--surface-2); padding: 8px 10px; }
+.pstats span { display: block; font-size: 11px; color: var(--muted); }
+.pstats b { font: 700 16px var(--sign); font-variant-numeric: tabular-nums; }
+.pstats .bar { grid-column: 1 / -1; padding: 0; height: 4px; display: flex; background: var(--surface-2); }
+.pstats .bar i { display: block; height: 100%; transition: width .6s; }
+.pstats.idle { display: block; padding: 9px 10px; background: var(--surface-2); color: var(--muted); font-size: 12.5px; }
+
+/* toast */
+.toast { display: flex; align-items: center; gap: 10px; border-left: 0; padding: 10px 16px 10px 12px; box-shadow: 0 16px 40px -12px rgba(0,0,0,.45); }
+.toast .ic { color: var(--flap); width: 17px; height: 17px; }
+@media (max-width: 760px) { .cmdk-btn { min-width: 0; flex: 1; } .cmdk-btn span { display: none; } .dr-facts { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1200px) { .kpis:not(.token-kpis) { grid-template-columns: repeat(3, minmax(0, 1fr)); } .kpi:nth-child(4) { border-left: 0; } .kpi:nth-child(n+4) { border-top: 1px solid var(--rule); } }
+@media (max-width: 1100px) {
+  .sidebar { width: 190px; padding: 24px 14px; } .wrap { padding-left: 214px; padding-right: 24px; } .provider-grid { grid-template-columns: 1fr; }
+  .two { grid-template-columns: minmax(0, 1fr); } .nav kbd { display: none; }
+}
+@media (max-width: 760px) {
+  .sidebar { position: static; width: 100%; padding: 14px 16px 0; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .brand { margin-bottom: 8px; font-size: 21px; }
+  .sidebar nav { display: flex; overflow-x: auto; padding-left: 0; scrollbar-width: none; }
+  .sidebar nav::before, .nav::before, .nav-ind, .sidebar-foot { display: none; }
+  .nav { padding: 10px 12px; white-space: nowrap; border-bottom: 3px solid transparent; }
+  .nav.active { border-bottom-color: var(--blue); }
+  .wrap { padding: 0 16px 40px; } h1 { font-size: 28px; }
+  .split, .connect-grid { grid-template-columns: 1fr; } .route-row .btn { padding: 5px 8px; }
+  .endpoint, .endpoint .copy { width: 100%; } .endpoint .copy { font-size: 11px; } input[type=search] { min-width: 0; flex: 1; }
+  .kpis, .token-kpis.kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpi { border-left: 1px solid var(--rule); border-top: 1px solid var(--rule); } .kpi:nth-child(odd) { border-left: 0; } .kpi:nth-child(-n+2) { border-top: 0; }
+  .kpi .value { font-size: 28px; } .spark { display: none; }
+  .board-head { display: none; }
+  .req { grid-template-columns: 62px minmax(0, 1fr) auto; } .req .via { grid-column: 1 / -1; grid-row: 2; }
+  .krow { grid-template-columns: 100px minmax(0, 1fr) 32px; } .message { max-width: 92%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+
+/* First-run guidance and access management share the dashboard's transit signage. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skip-link { position: fixed; top: -60px; left: 16px; z-index: 100; padding: 12px; background: var(--surface); }
+.skip-link:focus { top: 12px; }
+.onboarding { margin-bottom: 20px; border-top: 3px solid var(--blue); }
+.setup-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
+.setup-step { display: flex; gap: 12px; align-items: start; }
+.step-dot { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border: 1px solid var(--rule); border-radius: 50%; color: var(--text-2); font: 700 13px var(--sign); }
+.setup-step.complete .step-dot { color: var(--good-text); background: var(--surface-2); border-color: var(--good); }
+.setup-step h3 { margin: 2px 0 5px; font: 700 15px var(--sign); }
+.setup-step p { margin: 0 0 10px; color: var(--text-2); font-size: 13px; }
+.access-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+.access-card p { color: var(--text-2); margin: 0 0 14px; }
+.access-card code { overflow-wrap: anywhere; }
+.key-header { display: flex; justify-content: space-between; align-items: start; gap: 20px; flex-wrap: wrap; }
+.key-header h2 { margin-bottom: 6px; }
+.key-header p { margin: 0; color: var(--text-2); }
+.key-list { margin-top: 22px; }
+.key-row { display: flex; gap: 14px; align-items: center; padding: 17px 0; border-top: 1px solid var(--rule-soft); }
+.key-row .key-info { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.key-row strong { display: block; font-weight: 600; margin-bottom: 3px; }
+.key-row .toolbar { margin: 0; }
+.secret-box { border: 1px solid var(--good); border-left-width: 4px; background: var(--surface-2); padding: 18px; margin: 20px 0 0; border-radius: 4px; }
+.secret-box h3 { margin: 0 0 5px; font: 700 17px var(--sign); }
+.secret-box p { margin: 0 0 12px; color: var(--text-2); }
+.secret-value { display: block; width: 100%; font: 13px/1.5 var(--mono); padding: 12px; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); color: var(--text); }
+.secret-box .toolbar { margin-bottom: 0; }
+.btn.primary.danger { background: var(--critical-text); border-color: var(--critical-text); color: #fff; }
+.btn.primary.danger:hover { filter: brightness(.9); }
+.access-note { margin-top: 20px; color: var(--text-2); }
+.connection-controls { margin-bottom: 18px; display: flex; align-items: end; gap: 16px; flex-wrap: wrap; }
+.connection-controls .field { flex: 1; margin: 0; min-width: min(240px, 100%); }
+.session-logout { margin-left: auto; }
+button:disabled { cursor: wait; opacity: .6; }
+@media (max-width: 760px) {
+  .setup-steps, .access-summary { grid-template-columns: 1fr; }
+  .key-row { align-items: start; flex-wrap: wrap; }
+  .key-row .toolbar { width: 100%; }
+  .secret-box .toolbar .btn { flex: 1; }
+  .session-logout { min-height: 40px; }
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<aside class="sidebar">
+  <div class="brand"><svg class="tako-mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><path fill="#1f5fbf" d="M14 30a18 18 0 0 1 36 0v7H14z"/><g stroke="#1f5fbf" stroke-width="5" stroke-linecap="round"><path d="M16 34C8 34 4 40 6 45s8 5 10 0M20 36c-7 7-9 17-3 19 4 1 6-2 6-5M27 37c-3 8-3 19 2 20M37 37c3 8 3 19-2 20M29 36c1 7-1 11-4 12M35 36c-1 7 1 11 4 12M44 36c7 7 9 17 3 19-4 1-6-2-6-5M48 34c8 0 12 6 10 11s-8 5-10 0"/></g><circle cx="25" cy="27" r="3" fill="#fff"/><circle cx="39" cy="27" r="3" fill="#fff"/></svg>tako</div>
+  <nav aria-label="Main navigation">
+    <span class="nav-ind" aria-hidden="true"></span>
+    <button class="nav active" data-page="dashboard"><i data-ic="grid"></i>Overview<kbd>1</kbd></button>
+    <button class="nav" data-page="providers"><i data-ic="server"></i>Providers<kbd>2</kbd></button>
+    <button class="nav" data-page="routes"><i data-ic="route"></i>Combos<kbd>3</kbd></button>
+    <button class="nav" data-page="chat"><i data-ic="chat"></i>Playground<kbd>4</kbd></button>
+    <button class="nav" data-page="connect"><i data-ic="plug"></i>Connect<kbd>5</kbd></button>
+    <button class="nav" data-page="logs"><i data-ic="terminal"></i>Logs<kbd>6</kbd></button>
+    <button class="nav" data-page="access"><i data-ic="lock"></i>Access & keys<kbd>7</kbd></button>
+  </nav>
+  <div class="sidebar-foot">Provider credentials stay on your server.</div>
+</aside>
+<div class="wrap" id="root">
+  <header>
+
+    <button class="btn session-logout" id="sign-out" hidden>Sign out</button>
+    <div class="meta">
+      <span class="pill state"><span class="dot"></span><span id="state">connecting…</span></span>
+      <span class="pill"><i data-ic="tag"></i><span id="ver">–</span></span>
+      <span class="pill"><i data-ic="cpu"></i><span id="mem">–</span></span>
+    </div>
+    <div class="spacer"></div>
+    <button class="cmdk-btn" id="cmdk-open" aria-label="Open command menu"><i data-ic="search"></i><span>Search…</span><kbd>⌘K</kbd></button>
+    <div class="endpoint">
+      <button class="copy" data-copy="oai"><b>OpenAI</b><span id="ep-oai">–</span><svg class="ci" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="5" width="8.5" height="8.5" rx="2"/><path d="M10.5 5V3.5a1.5 1.5 0 0 0-1.5-1.5H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5H5"/></svg></button>
+      <button class="copy" data-copy="anth"><b>Anthropic</b><span id="ep-anth">–</span><svg class="ci" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="5" width="8.5" height="8.5" rx="2"/><path d="M10.5 5V3.5a1.5 1.5 0 0 0-1.5-1.5H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5H5"/></svg></button>
+      <button class="icon-btn" id="theme" title="Toggle theme" aria-label="Toggle theme"><i data-ic="moon"></i>
+      </button>
+    </div>
+  </header>
+
+  <div class="banner"><span class="spin"></span><span><b>Connection lost.</b> Reconnecting automatically. If this continues, check the router with <code>tako status</code>.</span></div>
+  <div class="warnings" id="warnings"></div>
+
+  <div class="page-heading"><div><h1 id="page-title">Overview</h1><p class="description" id="page-description">Every request, every fallback. One clear view.</p></div><button class="btn primary" id="page-action">Add provider</button></div>
+  <main id="main" tabindex="-1">
+  <div id="page-dashboard">
+  <section id="onboarding" class="card onboarding" aria-label="Set up your router" hidden></section>
+  <section class="card netmap" aria-label="Live routing map">
+    <div class="netmap-head"><h2><i data-ic="route"></i>Live routing <span class="count" id="nm-sub">each request runs the line it took</span></h2>
+      <span class="legend"><span><i style="background:var(--flap)"></i>request</span><span><i style="background:var(--good)"></i>served</span><span><i style="background:var(--critical)"></i>failed, diverted</span></span></div>
+    <svg id="netmap" role="img" aria-label="Requests flowing from your apps through tako to providers"></svg>
+  </section>
+  <section class="grid kpis">
+    <div class="kpi"><div class="label"><i data-ic="activity"></i>Requests</div><div class="value" id="k-total">0</div><div class="sub" id="k-total-sub"></div><svg class="spark" id="k-spark" viewBox="0 0 100 40" preserveAspectRatio="none"><path class="area" d=""/><path class="line" d="" vector-effect="non-scaling-stroke"/></svg></div>
+    <div class="kpi"><div class="label"><i data-ic="check"></i>Success rate</div><div class="value" id="k-rate">–</div><div class="sub" id="k-rate-sub"></div></div>
+    <div class="kpi hl"><div class="label"><i data-ic="shield"></i>Saved by fallback</div><div class="value" id="k-rescued">0</div><div class="sub" id="k-rescued-sub"></div></div>
+    <div class="kpi"><div class="label"><i data-ic="zap"></i>Avg latency</div><div class="value" id="k-lat">–</div><div class="sub" id="k-lat-sub"></div></div>
+    <div class="kpi" id="k-bench-card"><div class="label"><i data-ic="pause"></i>Sitting out</div><div class="value" id="k-bench">0</div><div class="sub" id="k-bench-sub"></div></div>
+  </section>
+
+  <section class="grid kpis token-kpis" aria-label="Token usage since router start">
+    <div class="kpi"><div class="label"><i data-ic="coins"></i>Tokens used</div><div class="value" id="k-tokens">0</div><div class="sub" id="k-tokens-sub">Since router start</div></div>
+    <div class="kpi"><div class="label"><i data-ic="in"></i>Input tokens</div><div class="value" id="k-input">0</div><div class="sub">Includes cached input</div></div>
+    <div class="kpi"><div class="label"><i data-ic="out"></i>Output tokens</div><div class="value" id="k-output">0</div><div class="sub">Generated responses and tool calls</div></div>
+  </section>
+  <section class="card" style="margin-bottom:16px">
+    <h2><i data-ic="gauge"></i>Tokens remaining <span class="count">latest provider reports</span></h2>
+    <p class="description">Rate limit windows, per target/key. Reports may share a provider quota. Values can change outside tako.</p>
+    <div style="overflow-x:auto"><table><thead><tr><th>Target / key</th><th class="num">Remaining</th><th class="num">Limit</th><th>Reset (provider)</th><th>Updated</th></tr></thead><tbody id="token-limits"></tbody></table></div>
+  </section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2><i data-ic="chart"></i>Traffic, last 60 min
+        <span class="legend"><span><i style="background:var(--accent)"></i>succeeded</span><span><i style="background:var(--critical)"></i>failed attempts</span></span>
+      </h2>
+      <div class="chart" id="chart">
+        <div class="axis" id="axis"></div>
+        <div class="bars" id="bars"></div>
+        <div class="xlabels"><span>-60m</span><span>-30m</span><span>now</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2><i data-ic="pause"></i>Benched <span class="count" id="bench-count"></span><span class="act"><button class="btn sm" id="clear-all" hidden><i data-ic="refresh"></i>Retry all now</button></span></h2>
+      <div class="bench" id="bench"></div>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <div class="card board-card">
+      <h2><i data-ic="radio"></i>Live requests <span class="count">newest first</span></h2>
+      <div class="toolbar"><input id="request-search" type="search" placeholder="Filter model or target…" aria-label="Search requests"><select id="request-filter" aria-label="Filter request outcome"><option value="all">All requests</option><option value="rescued">Saved by fallback</option><option value="failed">Failed requests</option></select></div>
+      <div class="board-head" aria-hidden="true"><span>Time</span><span>Combo</span><span>Served by</span><span>Status</span></div>
+      <div class="feed" id="feed"></div>
+    </div>
+    <div class="grid" style="align-content:start">
+      <div class="card">
+        <h2><i data-ic="route"></i>Fallback chains</h2>
+        <div id="combos"></div>
+      </div>
+      <div class="card">
+        <h2><i data-ic="alert"></i>Why attempts failed</h2>
+        <div class="kinds" id="kinds"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><i data-ic="target"></i>Targets <span class="count">since start</span></h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>target</th><th class="num">ok</th><th class="num">failed</th><th class="num">avg</th><th>success</th><th class="num">tokens used</th><th>state</th><th>last error</th></tr></thead>
+      <tbody id="targets"></tbody>
+    </table></div>
+  </section>
+  </div>
+  <section id="page-providers" hidden>
+    <div class="toolbar"><input id="provider-search" type="search" placeholder="Search providers…" aria-label="Search providers"><span class="detail">Keys stay on this machine.</span></div>
+    <div id="provider-content"></div>
+  </section>
+  <section id="page-routes" hidden><div id="route-content"></div></section>
+  <section id="page-chat" hidden>
+    <div class="card">
+      <div class="toolbar"><label for="chat-model">Route through</label><select id="chat-model"></select><span class="tag">Automatic fallback</span><span class="spacer"></span><button class="btn" id="chat-new"><i data-ic="plus"></i>New conversation</button></div>
+      <div id="chat-history" role="log" aria-label="Conversation"></div>
+      <p id="chat-error" class="inline-error" role="alert"></p>
+      <form id="chat-form" class="chat-compose"><textarea id="chat-input" placeholder="Send a message to your combo…" aria-label="Message" required></textarea><button class="btn primary" id="chat-send">Send<i data-ic="send"></i></button></form>
+      <p class="detail">Enter to send · Shift+Enter for a new line · Conversation stays in this tab.</p>
+    </div>
+  </section>
+  <section id="page-connect" hidden>
+    <div class="card connection-controls"><label class="field">Model or combo<select id="connect-model" aria-label="Model for connection recipes"></select></label><div><button class="btn" id="connect-keys">Manage API keys</button></div></div>
+    <div id="connect-content" class="connect-grid"></div>
+  </section>
+  <section id="page-access" hidden>
+    <div class="access-summary">
+      <article class="card access-card"><h2>Web panel</h2><p id="security-note">Checking password protection…</p><div class="detail">Set or reset the admin password in your server terminal.</div><pre>tako password</pre></article>
+      <article class="card access-card"><h2>Client access</h2><p>One key per app or device. Each key can use your configured models and combos.</p><div class="detail">API keys cannot sign in to this panel. Provider credentials are managed under Providers.</div><p id="transport-note" class="access-note"></p></article>
+    </div>
+    <article class="card">
+      <div class="key-header"><div><h2>API keys <span id="key-count" class="count"></span></h2><p>Name keys after the app or device that uses them.</p></div><button class="btn primary" id="create-key">Create API key</button></div>
+      <div id="key-result" class="secret-box" role="region" aria-label="New API key" hidden><h3>Your key is ready</h3><p>Copy it now. You won’t be able to see it again.</p><label class="field">API key<input id="new-key" class="secret-value" readonly autocomplete="off" spellcheck="false"></label><div class="toolbar"><button class="btn primary" id="copy-key">Copy key</button><button class="btn" id="dismiss-key">I’ve saved it</button></div></div>
+      <div id="client-keys" class="key-list" aria-live="polite">Loading keys…</div><p id="key-error" class="inline-error" role="alert"></p>
+    </article>
+  </section>
+  <section id="page-logs" hidden>
+    <div class="toolbar"><input id="log-search" type="search" placeholder="Filter log lines…" aria-label="Filter log lines"><label><input type="checkbox" id="log-follow" checked> Follow live</label><span class="spacer"></span><button class="btn" id="logs-copy"><i data-ic="copy"></i>Copy visible logs</button></div>
+    <pre id="log-content" class="log-box" aria-label="Router logs"></pre><p class="detail">Latest 1,000 lines · refreshes every 3 seconds · configured keys are redacted.</p>
+  </section>
+  </main>
+</div>
+<dialog id="modal" aria-labelledby="dialog-title"><form id="dialog-form"><h2 id="dialog-title"></h2><p id="dialog-description" class="description"></p><div id="dialog-body"></div><div id="dialog-error" class="inline-error" role="alert"></div><div class="dialog-actions"><button type="button" class="btn" id="dialog-cancel">Cancel</button><button type="submit" class="btn primary" id="dialog-submit">Save</button></div></form></dialog>
+<div class="tip" id="tip"></div>
+<div class="toast" id="toast" role="status"></div>
+<div class="cmdk" id="cmdk" hidden><div class="cmdk-box" role="dialog" aria-modal="true" aria-label="Command menu">
+  <div class="cmdk-input"><i data-ic="search"></i><input id="cmdk-q" placeholder="Search pages, providers, combos, actions…" autocomplete="off" spellcheck="false" aria-label="Search commands" aria-controls="cmdk-list"></div>
+  <div class="cmdk-list" id="cmdk-list" role="listbox"></div>
+  <div class="cmdk-foot"><span><kbd>↑</kbd><kbd>↓</kbd>move</span><span><kbd>↵</kbd>run</span><span><kbd>esc</kbd>close</span></div>
+</div></div>
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="dr-title"><div class="dr-head"><span id="dr-status"></span><h3 id="dr-title">Request</h3><button class="icon-btn" id="dr-close" aria-label="Close request details"><i data-ic="x"></i></button></div><div class="dr-body" id="dr-body"></div></aside>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-0-_R_0_" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-1-_R_0_" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-2-_R_0_" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  document.querySelector('.skip-link').onclick = e => { e.preventDefault(); $('main').focus(); };
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const fmtDur = (s) => s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m ${s % 60}s` : s < 86400 ? `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m` : `${Math.floor(s / 86400)}d ${Math.floor(s % 86400 / 3600)}h`;
+  const fmtMs = (ms) => ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+  const clock = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+  // severity per failure kind: drives colour + icon (never colour alone)
+  const SEV = { billing: "critical", auth: "critical", not_found: "critical", quota: "warning", rate_limit: "warning", overloaded: "warning",
+    server: "serious", network: "serious", timeout: "serious", bad_response: "serious", too_large: "neutral", bad_request: "neutral" };
+  const KIND_LABEL = { billing: "out of credits", quota: "quota used up", rate_limit: "rate limited", auth: "key rejected", not_found: "model not found",
+    too_large: "request too large", bad_request: "request rejected", overloaded: "overloaded", server: "server error", network: "unreachable",
+    timeout: "timed out", bad_response: "bad response" };
+  const ICON = {
+    critical: '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l6 6M9 3l-6 6"/></svg>',
+    warning: '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="4.5"/><path d="M6 3.5V6l1.6 1.2"/></svg>',
+    serious: '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 1.5l4.5 8.5h-9z"/><path d="M6 5v2"/></svg>',
+    neutral: '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="4.5"/><path d="M4 6h4"/></svg>',
+    good: '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 6.2l2.3 2.3 4.7-5"/></svg>',
+  };
+  const chip = (kind, label) => { const s = SEV[kind] || "neutral"; return `<span class="chip s-${s}">${ICON[s]}${esc(label || KIND_LABEL[kind] || kind)}</span>`; };
+
+
+  // ---- icons (stroke set) and provider logos (Simple Icons, CC0) ----
+  const ICONS = {"grid": "<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1.5\"/>", "server": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"7\" rx=\"2\"/><rect x=\"3\" y=\"13\" width=\"18\" height=\"7\" rx=\"2\"/><path d=\"M7 7.5h.01M7 16.5h.01\"/>", "route": "<circle cx=\"6\" cy=\"19\" r=\"2.5\"/><circle cx=\"18\" cy=\"5\" r=\"2.5\"/><path d=\"M8.5 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5\"/>", "chat": "<path d=\"M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z\"/>", "plug": "<path d=\"M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5\"/>", "terminal": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M7 9l3 3-3 3M13 15h4\"/>", "activity": "<path d=\"M3 12h4l3-8 4 16 3-8h4\"/>", "check": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M8 12.5l2.5 2.5L16 9.5\"/>", "shield": "<path d=\"M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z\"/><path d=\"M9 12l2 2 4-4\"/>", "zap": "<path d=\"M13 2L4 14h7l-1 8 9-12h-7z\"/>", "clock": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/>", "coins": "<ellipse cx=\"12\" cy=\"6\" rx=\"8\" ry=\"3\"/><path d=\"M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6\"/>", "in": "<path d=\"M12 3v12M7 10l5 5 5-5M5 21h14\"/>", "out": "<path d=\"M12 21V9M7 14l5-5 5 5M5 3h14\"/>", "gauge": "<path d=\"M12 14l4-4\"/><path d=\"M3.5 18a9 9 0 1 1 17 0\"/>", "chart": "<path d=\"M4 20V10M10 20V4M16 20v-7M22 20H2\"/>", "pause": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M10 9v6M14 9v6\"/>", "radio": "<circle cx=\"12\" cy=\"12\" r=\"2\"/><path d=\"M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2\"/>", "alert": "<path d=\"M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z\"/><path d=\"M12 9v4M12 17h.01\"/>", "target": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"5\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/>", "plus": "<path d=\"M12 5v14M5 12h14\"/>", "refresh": "<path d=\"M20 11a8 8 0 0 0-14.9-3M4 4v4h4M4 13a8 8 0 0 0 14.9 3M20 20v-4h-4\"/>", "copy": "<rect x=\"9\" y=\"9\" width=\"12\" height=\"12\" rx=\"2\"/><path d=\"M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1\"/>", "trash": "<path d=\"M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3\"/>", "up": "<path d=\"M12 19V5M6 11l6-6 6 6\"/>", "down": "<path d=\"M12 5v14M6 13l6 6 6-6\"/>", "x": "<path d=\"M6 6l12 12M18 6L6 18\"/>", "key": "<circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l9-9M17 6l3 3M14 9l2 2\"/>", "external": "<path d=\"M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5\"/>", "flask": "<path d=\"M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3\"/><path d=\"M7 15h10\"/>", "list": "<path d=\"M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01\"/>", "star": "<path d=\"M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z\"/>", "send": "<path d=\"M22 2L11 13M22 2l-7 20-4-9-9-4z\"/>", "cpu": "<rect x=\"5\" y=\"5\" width=\"14\" height=\"14\" rx=\"2\"/><rect x=\"9\" y=\"9\" width=\"6\" height=\"6\"/><path d=\"M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3\"/>", "moon": "<path d=\"M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z\"/>", "tag": "<path d=\"M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z\"/><circle cx=\"7.5\" cy=\"7.5\" r=\"1.5\"/>", "edit": "<path d=\"M4 20h4L19 9l-4-4L4 16z\"/>", "code": "<path d=\"M8 6l-6 6 6 6M16 6l6 6-6 6\"/>", "lock": "<rect x=\"4\" y=\"11\" width=\"16\" height=\"10\" rx=\"2\"/><path d=\"M8 11V7a4 4 0 0 1 8 0v4\"/>", "sparkle": "<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/>", "search": "<circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"M20 20l-4-4\"/>"};
+  const ic = (n, cls = "") => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ""}</svg>`;
+  const LOGOS = {"anthropic": {"v": "0 0 24 24", "i": "<g fill-rule=\"evenodd\"><path d=\"M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-7.258 0h3.767L16.906 20h-3.674l-1.343-3.461H5.017l-1.344 3.46H0L6.57 3.522zm4.132 9.959L8.453 7.687 6.205 13.48H10.7z\"></path></g>"}, "claudecode": {"v": "0 0 24 24", "i": "<path clip-rule=\"evenodd\" d=\"M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z\" fill=\"#D97757\" fill-rule=\"evenodd\"></path>"}, "cloudflare": {"v": "0 0 24 24", "i": "<path d=\"M16.493 17.4c.135-.52.08-.983-.161-1.338-.215-.328-.592-.519-1.05-.519l-8.663-.109a.148.148 0 01-.135-.082c-.027-.054-.027-.109-.027-.163.027-.082.108-.164.189-.164l8.744-.11c1.05-.054 2.153-.9 2.556-1.937l.511-1.31c.027-.055.027-.11.027-.164C17.92 8.91 15.66 7 12.942 7c-2.503 0-4.628 1.638-5.381 3.903a2.432 2.432 0 00-1.803-.491c-1.21.109-2.153 1.092-2.287 2.32-.027.328 0 .628.054.9C1.56 13.688 0 15.326 0 17.319c0 .19.027.355.027.545 0 .082.08.137.161.137h15.983c.08 0 .188-.055.215-.164l.107-.437\" fill=\"#F38020\"></path><path d=\"M19.238 11.75h-.242c-.054 0-.108.054-.135.109l-.35 1.2c-.134.52-.08.983.162 1.338.215.328.592.518 1.05.518l1.855.11c.054 0 .108.027.135.082.027.054.027.109.027.163-.027.082-.108.164-.188.164l-1.91.11c-1.05.054-2.153.9-2.557 1.937l-.134.355c-.027.055.026.137.107.137h6.592c.081 0 .162-.055.162-.137.107-.41.188-.846.188-1.31-.027-2.62-2.153-4.777-4.762-4.777\" fill=\"#FCAD32\"></path>"}, "cohere": {"v": "0 0 24 24", "i": "<path clip-rule=\"evenodd\" d=\"M8.128 14.099c.592 0 1.77-.033 3.398-.703 1.897-.781 5.672-2.2 8.395-3.656 1.905-1.018 2.74-2.366 2.74-4.18A4.56 4.56 0 0018.1 1H7.549A6.55 6.55 0 001 7.55c0 3.617 2.745 6.549 7.128 6.549z\" fill=\"#39594D\" fill-rule=\"evenodd\"></path><path clip-rule=\"evenodd\" d=\"M9.912 18.61a4.387 4.387 0 012.705-4.052l3.323-1.38c3.361-1.394 7.06 1.076 7.06 4.715a5.104 5.104 0 01-5.105 5.104l-3.597-.001a4.386 4.386 0 01-4.386-4.387z\" fill=\"#D18EE2\" fill-rule=\"evenodd\"></path><path d=\"M4.776 14.962A3.775 3.775 0 001 18.738v.489a3.776 3.776 0 007.551 0v-.49a3.775 3.775 0 00-3.775-3.775z\" fill=\"#FF7759\"></path>"}, "cursor": {"v": "0 0 24 24", "i": "<g fill-rule=\"evenodd\"><path d=\"M22.106 5.68L12.5.135a.998.998 0 00-.998 0L1.893 5.68a.84.84 0 00-.419.726v11.186c0 .3.16.577.42.727l9.607 5.547a.999.999 0 00.998 0l9.608-5.547a.84.84 0 00.42-.727V6.407a.84.84 0 00-.42-.726zm-.603 1.176L12.228 22.92c-.063.108-.228.064-.228-.061V12.34a.59.59 0 00-.295-.51l-9.11-5.26c-.107-.062-.063-.228.062-.228h18.55c.264 0 .428.286.296.514z\"></path></g>"}, "deepseek": {"v": "0 0 24 24", "i": "<path d=\"M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 01-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 00-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 01-.465.137 9.597 9.597 0 00-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 001.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 011.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 01.415-.287.302.302 0 01.2.288.306.306 0 01-.31.307.303.303 0 01-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 01-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 01.016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 01-.254-.078c-.11-.054-.2-.19-.114-.358.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z\" fill=\"#4D6BFE\"></path>"}, "gemini": {"v": "0 0 24 24", "i": "<path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"#3186FF\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-0-_R_0_)\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-1-_R_0_)\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-2-_R_0_)\"></path>"}, "groq": {"v": "0 0 24 24", "i": "<g fill-rule=\"evenodd\"><path d=\"M12.036 2c-3.853-.035-7 3-7.036 6.781-.035 3.782 3.055 6.872 6.908 6.907h2.42v-2.566h-2.292c-2.407.028-4.38-1.866-4.408-4.23-.029-2.362 1.901-4.298 4.308-4.326h.1c2.407 0 4.358 1.915 4.365 4.278v6.305c0 2.342-1.944 4.25-4.323 4.279a4.375 4.375 0 01-3.033-1.252l-1.851 1.818A7 7 0 0012.029 22h.092c3.803-.056 6.858-3.083 6.879-6.816v-6.5C18.907 4.963 15.817 2 12.036 2z\"></path></g>"}, "kilocode": {"v": "0 0 24 24", "i": "<g fill-rule=\"evenodd\"><path d=\"M0 0v24h24V0H0zm22.222 22.222H1.778V1.778h20.444v20.444zm-7.555-4.964h2.222v1.778h-2.794L12.89 17.83v-2.794h1.778v2.222zm4 0h-1.778v-2.222h-2.222v-1.778h2.793l1.207 1.207v2.793zm-7.556-2.591H9.333v-1.778h1.778v1.778zm-5.778-1.778h1.778v4h4v1.778H6.54L5.333 17.46V12.89zm13.334-3.556v1.778h-5.778V9.333h1.987V7.111h-1.987V5.333h2.558l1.206 1.207v2.793h2.014zm-11.556-2h2.222l1.778 1.778v2H9.333v-2H7.111v2H5.333V5.333h1.778v2zm4 0H9.333v-2h1.778v2z\"></path></g>"}, "lmstudio": {"v": "0 0 24 24", "i": "<g fill-rule=\"evenodd\"><path d=\"M2.84 2a1.273 1.273 0 100 2.547h14.107a1.273 1.273 0 100-2.547H2.84zM7.935 5.33a1.273 1.273 0 000 2.548H22.04a1.274 1.274 0 000-2.547H7.935zM3.624 9.935c0-.704.57-1.274 1.274-1.274h14.106a1.274 1.274 0 010 2.547H4.898c-.703 0-1.274-.57-1.274-1.273zM1.273 12.188a1.273 1.273 0 100 2.547H15.38a1.274 1.274 0 000-2.547H1.273zM3.624 16.792c0-.704.57-1.274 1.274-1.274h14.106a1.273 1.273 0 110 2.547H4.898c-.703 0-1.274-.57-1.274-1.273zM13.029 18.849a1.273 1.273 0 100 2.547h9.698a1.273 1.273 0 100-2.547h-9.698z\" fill-opacity=\".3\"></path><path d=\"M2.84 2a1.273 1.273 0 100 2.547h10.287a1.274 1.274 0 000-2.547H2.84zM7.935 5.33a1.273 1.273 0 000 2.548H18.22a1.274 1.274 0 000-2.547H7.935zM3.624 9.935c0-.704.57-1.274 1.274-1.274h10.286a1.273 1.273 0 010 2.547H4.898c-.703 0-1.274-.57-1.274-1.273zM1.273 12.188a1.273 1.273 0 100 2.547H11.56a1.274 1.274 0 000-2.547H1.273zM3.624 16.792c0-.704.57-1.274 1.274-1.274h10.286a1.273 1.273 0 110 2.547H4.898c-.703 0-1.274-.57-1.274-1.273zM13.029 18.849a1.273 1.273 0 100 2.547h5.78a1.273 1.273 0 100-2.547h-5.78z\"></path></g>"}, "mistral": {"v": "0 0 24 24", "i": "<path d=\"M3.428 3.4h3.429v3.428H3.428V3.4zm13.714 0h3.43v3.428h-3.43V3.4z\" fill=\"gold\"></path><path d=\"M3.428 6.828h6.857v3.429H3.429V6.828zm10.286 0h6.857v3.429h-6.857V6.828z\" fill=\"#FFAF00\"></path><path d=\"M3.428 10.258h17.144v3.428H3.428v-3.428z\" fill=\"#FF8205\"></path><path d=\"M3.428 13.686h3.429v3.428H3.428v-3.428zm6.858 0h3.429v3.428h-3.429v-3.428zm6.856 0h3.43v3.428h-3.43v-3.428z\" fill=\"#FA500F\"></path><path d=\"M0 17.114h10.286v3.429H0v-3.429zm13.714 0H24v3.429H13.714v-3.429z\" fill=\"#E10500\"></path>"}, "nvidia": {"v": "0 0 24 24", "i": "<path d=\"M10.212 8.976V7.62c.127-.01.256-.017.388-.021 3.596-.117 5.957 3.184 5.957 3.184s-2.548 3.647-5.282 3.647a3.227 3.227 0 01-1.063-.175v-4.109c1.4.174 1.681.812 2.523 2.258l1.873-1.627a4.905 4.905 0 00-3.67-1.846 6.594 6.594 0 00-.729.044m0-4.476v2.025c.13-.01.259-.019.388-.024 5.002-.174 8.261 4.226 8.261 4.226s-3.743 4.69-7.643 4.69c-.338 0-.675-.031-1.007-.092v1.25c.278.038.558.057.838.057 3.629 0 6.253-1.91 8.794-4.169.421.347 2.146 1.193 2.501 1.564-2.416 2.083-8.048 3.763-11.24 3.763-.308 0-.603-.02-.894-.048V19.5H24v-15H10.21zm0 9.756v1.068c-3.356-.616-4.287-4.21-4.287-4.21a7.173 7.173 0 014.287-2.138v1.172h-.005a3.182 3.182 0 00-2.502 1.178s.615 2.276 2.507 2.931m-5.961-3.3c1.436-1.935 3.604-3.148 5.961-3.336V6.523C5.81 6.887 2 10.723 2 10.723s2.158 6.427 8.21 7.015v-1.166C5.77 16 4.25 10.958 4.25 10.958h-.002z\" fill=\"#74B71B\" fill-rule=\"nonzero\"></path>"}, "ollama": {"v": "0 0 24 24", "i": "<g fill-rule=\"evenodd\"><path d=\"M7.905 1.09c.216.085.411.225.588.41.295.306.544.744.734 1.263.191.522.315 1.1.362 1.68a5.054 5.054 0 012.049-.636l.051-.004c.87-.07 1.73.087 2.48.474.101.053.2.11.297.17.05-.569.172-1.134.36-1.644.19-.52.439-.957.733-1.264a1.67 1.67 0 01.589-.41c.257-.1.53-.118.796-.042.401.114.745.368 1.016.737.248.337.434.769.561 1.287.23.934.27 2.163.115 3.645l.053.04.026.019c.757.576 1.284 1.397 1.563 2.35.435 1.487.216 3.155-.534 4.088l-.018.021.002.003c.417.762.67 1.567.724 2.4l.002.03c.064 1.065-.2 2.137-.814 3.19l-.007.01.01.024c.472 1.157.62 2.322.438 3.486l-.006.039a.651.651 0 01-.747.536.648.648 0 01-.54-.742c.167-1.033.01-2.069-.48-3.123a.643.643 0 01.04-.617l.004-.006c.604-.924.854-1.83.8-2.72-.046-.779-.325-1.544-.8-2.273a.644.644 0 01.18-.886l.009-.006c.243-.159.467-.565.58-1.12a4.229 4.229 0 00-.095-1.974c-.205-.7-.58-1.284-1.105-1.683-.595-.454-1.383-.673-2.38-.61a.653.653 0 01-.632-.371c-.314-.665-.772-1.141-1.343-1.436a3.288 3.288 0 00-1.772-.332c-1.245.099-2.343.801-2.67 1.686a.652.652 0 01-.61.425c-1.067.002-1.893.252-2.497.703-.522.39-.878.935-1.066 1.588a4.07 4.07 0 00-.068 1.886c.112.558.331 1.02.582 1.269l.008.007c.212.207.257.53.109.785-.36.622-.629 1.549-.673 2.44-.05 1.018.186 1.902.719 2.536l.016.019a.643.643 0 01.095.69c-.576 1.236-.753 2.252-.562 3.052a.652.652 0 01-1.269.298c-.243-1.018-.078-2.184.473-3.498l.014-.035-.008-.012a4.339 4.339 0 01-.598-1.309l-.005-.019a5.764 5.764 0 01-.177-1.785c.044-.91.278-1.842.622-2.59l.012-.026-.002-.002c-.293-.418-.51-.953-.63-1.545l-.005-.024a5.352 5.352 0 01.093-2.49c.262-.915.777-1.701 1.536-2.269.06-.045.123-.09.186-.132-.159-1.493-.119-2.73.112-3.67.127-.518.314-.95.562-1.287.27-.368.614-.622 1.015-.737.266-.076.54-.059.797.042zm4.116 9.09c.936 0 1.8.313 2.446.855.63.527 1.005 1.235 1.005 1.94 0 .888-.406 1.58-1.133 2.022-.62.375-1.451.557-2.403.557-1.009 0-1.871-.259-2.493-.734-.617-.47-.963-1.13-.963-1.845 0-.707.398-1.417 1.056-1.946.668-.537 1.55-.849 2.485-.849zm0 .896a3.07 3.07 0 00-1.916.65c-.461.37-.722.835-.722 1.25 0 .428.21.829.61 1.134.455.347 1.124.548 1.943.548.799 0 1.473-.147 1.932-.426.463-.28.7-.686.7-1.257 0-.423-.246-.89-.683-1.256-.484-.405-1.14-.643-1.864-.643zm.662 1.21l.004.004c.12.151.095.37-.056.49l-.292.23v.446a.375.375 0 01-.376.373.375.375 0 01-.376-.373v-.46l-.271-.218a.347.347 0 01-.052-.49.353.353 0 01.494-.051l.215.172.22-.174a.353.353 0 01.49.051zm-5.04-1.919c.478 0 .867.39.867.871a.87.87 0 01-.868.871.87.87 0 01-.867-.87.87.87 0 01.867-.872zm8.706 0c.48 0 .868.39.868.871a.87.87 0 01-.868.871.87.87 0 01-.867-.87.87.87 0 01.867-.872zM7.44 2.3l-.003.002a.659.659 0 00-.285.238l-.005.006c-.138.189-.258.467-.348.832-.17.692-.216 1.631-.124 2.782.43-.128.899-.208 1.404-.237l.01-.001.019-.034c.046-.082.095-.161.148-.239.123-.771.022-1.692-.253-2.444-.134-.364-.297-.65-.453-.813a.628.628 0 00-.107-.09L7.44 2.3zm9.174.04l-.002.001a.628.628 0 00-.107.09c-.156.163-.32.45-.453.814-.29.794-.387 1.776-.23 2.572l.058.097.008.014h.03a5.184 5.184 0 011.466.212c.086-1.124.038-2.043-.128-2.722-.09-.365-.21-.643-.349-.832l-.004-.006a.659.659 0 00-.285-.239h-.004z\"></path></g>"}, "openai": {"v": "0 0 24 24", "i": "<g fill-rule=\"evenodd\"><path d=\"M9.205 8.658v-2.26c0-.19.072-.333.238-.428l4.543-2.616c.619-.357 1.356-.523 2.117-.523 2.854 0 4.662 2.212 4.662 4.566 0 .167 0 .357-.024.547l-4.71-2.759a.797.797 0 00-.856 0l-5.97 3.473zm10.609 8.8V12.06c0-.333-.143-.57-.429-.737l-5.97-3.473 1.95-1.118a.433.433 0 01.476 0l4.543 2.617c1.309.76 2.189 2.378 2.189 3.948 0 1.808-1.07 3.473-2.76 4.163zM7.802 12.703l-1.95-1.142c-.167-.095-.239-.238-.239-.428V5.899c0-2.545 1.95-4.472 4.591-4.472 1 0 1.927.333 2.712.928L8.23 5.067c-.285.166-.428.404-.428.737v6.898zM12 15.128l-2.795-1.57v-3.33L12 8.658l2.795 1.57v3.33L12 15.128zm1.796 7.23c-1 0-1.927-.332-2.712-.927l4.686-2.712c.285-.166.428-.404.428-.737v-6.898l1.974 1.142c.167.095.238.238.238.428v5.233c0 2.545-1.974 4.472-4.614 4.472zm-5.637-5.303l-4.544-2.617c-1.308-.761-2.188-2.378-2.188-3.948A4.482 4.482 0 014.21 6.327v5.423c0 .333.143.571.428.738l5.947 3.449-1.95 1.118a.432.432 0 01-.476 0zm-.262 3.9c-2.688 0-4.662-2.021-4.662-4.519 0-.19.024-.38.047-.57l4.686 2.71c.286.167.571.167.856 0l5.97-3.448v2.26c0 .19-.07.333-.237.428l-4.543 2.616c-.619.357-1.356.523-2.117.523zm5.899 2.83a5.947 5.947 0 005.827-4.756C22.287 18.339 24 15.84 24 13.296c0-1.665-.713-3.282-1.998-4.448.119-.5.19-.999.19-1.498 0-3.401-2.759-5.947-5.946-5.947-.642 0-1.26.095-1.88.31A5.962 5.962 0 0010.205 0a5.947 5.947 0 00-5.827 4.757C1.713 5.447 0 7.945 0 10.49c0 1.666.713 3.283 1.998 4.448-.119.5-.19 1-.19 1.499 0 3.401 2.759 5.946 5.946 5.946.642 0 1.26-.095 1.88-.309a5.96 5.96 0 004.162 1.713z\"></path></g>"}, "opencode": {"v": "0 0 24 24", "i": "<g fill-rule=\"evenodd\"><path d=\"M16 6H8v12h8V6zm4 16H4V2h16v20z\"></path></g>"}, "openrouter": {"v": "0 0 24 24", "i": "<g fill-rule=\"evenodd\"><path d=\"M18.654 3.87a5.087 5.087 0 110 10.174L23.7 19.09c.64.641.187 1.737-.72 1.737H8.48a8.479 8.479 0 010-16.958h10.175zM8.479 7.26a5.087 5.087 0 100 10.176 5.087 5.087 0 000-10.175z\"></path></g>"}, "vercel": {"v": "0 0 24 24", "i": "<g fill-rule=\"evenodd\"><path d=\"M12 0l12 20.785H0L12 0z\"></path></g>"}, "zai": {"v": "0 0 24 24", "i": "<g fill-rule=\"evenodd\"><path d=\"M12.105 2L9.927 4.953H.653L2.83 2h9.276zM23.254 19.048L21.078 22h-9.242l2.174-2.952h9.244zM24 2L9.264 22H0L14.736 2H24z\"></path></g>"}};
+  const LOGO_BY_ID = { openrouter: "openrouter", nvidia: "nvidia", gemini: "gemini", google: "gemini", cloudflare: "cloudflare", vercel: "vercel", mistral: "mistral", ollama: "ollama", lmstudio: "lmstudio", deepseek: "deepseek", anthropic: "anthropic", claude: "anthropic", openai: "openai", groq: "groq", cohere: "cohere", zai: "zai", "zai-coding": "zai", zhipu: "zai", kilo: "kilocode", kilocode: "kilocode" };
+  const LOGO_BY_HOST = [["openrouter.ai", "openrouter"], ["nvidia.com", "nvidia"], ["googleapis.com", "gemini"], ["cloudflare.com", "cloudflare"], ["vercel", "vercel"], ["mistral.ai", "mistral"], [":11434", "ollama"], [":1234", "lmstudio"], ["deepseek.com", "deepseek"], ["anthropic.com", "anthropic"], ["openai.com", "openai"], ["groq.com", "groq"], ["cohere", "cohere"], ["z.ai", "zai"], ["bigmodel.cn", "zai"], ["kilo", "kilocode"]];
+  const MONO = { groq: "#f55036", cohere: "#39594d", zai: "#2563eb", "zai-coding": "#2563eb", kilo: "#a16207", llm7: "#0e7490", typhoon: "#7c3aed" };
+  const PALETTE = ["#2563eb", "#0e7490", "#7c3aed", "#be185d", "#b45309", "#15803d", "#4338ca", "#9f1239"];
+  function logoKey(id) {
+    if (LOGO_BY_ID[id]) return LOGO_BY_ID[id];
+    const url = overview?.providers?.[id]?.base_url || catalog.find((e) => e.id === id)?.base_url || "";
+    const hit = LOGO_BY_HOST.find(([h]) => url.includes(h));
+    return hit ? hit[1] : null;
+  }
+  const provOf = (target) => String(target).split("/")[0];
+  const logoTile = (k, size = "") => `<span class="plogo ${size}" aria-hidden="true"><svg viewBox="${LOGOS[k].v}" fill="currentColor">${LOGOS[k].i}</svg></span>`;
+  function plogo(id, size = "") {
+    const k = logoKey(id);
+    if (k && LOGOS[k]) return logoTile(k, size);
+    let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const name = catalog.find((e) => e.id === id)?.name || id;
+    const letters = name.replace(/[^A-Za-z0-9]/g, "").slice(0, 2) || "?";
+    return `<span class="plogo mono ${size}" style="--brand:${MONO[id] || PALETTE[h % PALETTE.length]}" aria-hidden="true">${esc(letters[0].toUpperCase() + (letters[1] || "").toLowerCase())}</span>`;
+  }
+  const withLogo = (target, size = "sm") => `<span class="with-logo">${plogo(provOf(target), size)}<span>${esc(target)}</span></span>`;
+  document.querySelectorAll("i[data-ic]").forEach((e) => e.outerHTML = ic(e.dataset.ic));
+
+  // ---- theme ----
+  const savedTheme = (() => { try { return localStorage.getItem("tako-theme"); } catch { return null; } })();
+  if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+  $("theme").onclick = () => {
+    const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    const next = dark ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("tako-theme", next); } catch {}
+  };
+
+  // ---- endpoints ----
+  const origin = location.origin;
+  $("ep-oai").textContent = `${origin}/v1`;
+  $("ep-anth").textContent = origin;
+  const toast = (msg) => { const t = $("toast"); t.innerHTML = ic("check") + "<span></span>"; t.lastChild.textContent = msg; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 1800); };
+  document.querySelectorAll("[data-copy]").forEach((b) => b.onclick = async () => {
+    const v = b.dataset.copy === "oai" ? `${origin}/v1` : origin;
+    try { await navigator.clipboard.writeText(v); b.classList.add("done"); setTimeout(() => b.classList.remove("done"), 1200); toast("Copied " + v); } catch { toast(v); }
+  });
+
+  // ---- animated numbers ----
+  const shown = {};
+  function countTo(id, value, fmt = (v) => Math.round(v).toLocaleString()) {
+    const el = $(id), from = shown[id] ?? 0;
+    if (from === value) { if (!el.dataset.init) { el.innerHTML = fmt(value); el.dataset.init = 1; } return; }
+    shown[id] = value; el.dataset.init = 1;
+    if (value > from) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+    const t0 = performance.now(), dur = 650;
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.innerHTML = fmt(from + (value - from) * e);
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  // ---- tooltip ----
+  const tip = $("tip");
+  const showTip = (e, html) => { tip.innerHTML = html; tip.classList.add("on"); const r = tip.getBoundingClientRect();
+    tip.style.left = Math.min(innerWidth - r.width - 8, Math.max(8, e.clientX - r.width / 2)) + "px"; tip.style.top = (e.clientY - r.height - 14) + "px"; };
+  const hideTip = () => tip.classList.remove("on");
+
+  // ---- data ----
+  let status = null, overview = null, online = null;
+  let deadlines = {};       // cooldown key -> {until, total, kind, label}
+  const seenReqs = new Set();
+  let firstFeed = true;
+
+  let signingOut = false;
+  async function requestJSON(url, options = {}) {
+    const r = await fetch(url, {cache: 'no-store', ...options});
+    if (r.status === 401 && !signingOut) {
+      signingOut = true;
+      location.replace('/ui?session=expired' + location.hash);
+      throw new Error('Your session expired. Sign in again to continue.');
+    }
+    const v = await r.json();
+    if (!r.ok) throw new Error(v.error?.message || `Request failed (${r.status})`);
+    return v;
+  }
+  const getJSON = url => requestJSON(url);
+
+  function setOnline(on) {
+    if (online === on) return;
+    online = on;
+    $("root").classList.toggle("offline", !on);
+    $("state").textContent = on ? "routing" : "offline";
+  }
+
+  async function poll() {
+    try {
+      const s = await getJSON("/status");
+      status = s; setOnline(true); render(); renderSetup();
+    } catch { setOnline(false); }
+  }
+  async function pollOverview() {
+    try { overview = await getJSON("/api/overview"); renderWarnings(); render(); renderWorkspace(); } catch {}
+  }
+
+  function renderWarnings() {
+    const w = overview?.warnings || [];
+    $("warnings").innerHTML = w.map((x) => `<div>${esc(x)}</div>`).join("");
+  }
+
+  function render() {
+    if (!status) return;
+    const s = status, rq = s.requests || { total: 0, first_try: 0, rescued: 0, failed: 0 };
+    $("ver").textContent = `v${s.version} · up ${fmtDur(s.uptime)}`;
+    $("mem").textContent = `${(s.rss / 1048576).toFixed(1)} MB RAM`;
+
+    // KPIs
+    countTo("k-total", rq.total);
+    $("k-total-sub").textContent = rq.total ? `${rq.first_try.toLocaleString()} on the first try` : "waiting for traffic";
+    const served = rq.first_try + rq.rescued;
+    const rate = rq.total ? served / rq.total * 100 : null;
+    if (rate === null) $("k-rate").textContent = "–"; else countTo("k-rate", rate, (v) => `${v.toFixed(1)}<small>%</small>`);
+    $("k-rate-sub").textContent = rq.failed ? `${rq.failed} failed everywhere` : rq.total ? "nothing lost" : "";
+    $("k-rate").parentElement.classList.toggle("bad", rate !== null && rate < 90);
+    countTo("k-rescued", rq.rescued);
+    $("k-rescued-sub").textContent = rq.rescued ? "would have failed without tako" : "no fallbacks needed yet";
+    const st = Object.values(s.stats || {});
+    const okN = st.reduce((a, x) => a + x.ok, 0), msSum = st.reduce((a, x) => a + x.avg_ms * x.ok, 0);
+    if (okN) countTo("k-lat", msSum / okN, (v) => v >= 1000 ? `${(v / 1000).toFixed(2)}<small>s</small>` : `${Math.round(v)}<small>ms</small>`);
+    $("k-lat-sub").textContent = okN ? "successful responses, to first byte" : "";
+
+    const tokens = s.tokens || {};
+    countTo("k-tokens", tokens.total_tokens || 0);
+    countTo("k-input", tokens.input_tokens || 0);
+    countTo("k-output", tokens.output_tokens || 0);
+    $("k-tokens-sub").textContent = `Since router start · finished streams/responses${tokens.estimated_requests ? ` · ${tokens.estimated_requests} estimated (~1 token / 4 bytes)` : ""}`;
+    const limits = Object.entries(s.token_limits || {});
+    $("token-limits").innerHTML = limits.length ? limits.map(([key, q]) =>
+      `<tr><td class="mono">${esc(key)}</td><td class="num">${q.remaining.toLocaleString()}</td><td class="num">${q.limit == null ? "Unknown" : q.limit.toLocaleString()}</td><td>${esc(q.reset || "Unknown")}</td><td>${esc(fmtDur(Math.max(0, Date.now() / 1000 - q.observed_at)))} ago</td></tr>`
+    ).join("") : `<tr><td colspan="5" class="empty">Unknown — providers have not reported token limits yet.</td></tr>`;
+
+    // cooldowns
+    deadlines = {};
+    const now = Date.now();
+    for (const [k, c] of Object.entries(s.cooling_info || {})) deadlines[k] = { ...c, until: now + c.left * 1000 };
+    const nBench = Object.keys(deadlines).length;
+    countTo("k-bench", nBench);
+    $("k-bench-card").classList.toggle("bad", nBench > 0);
+    const why = {};
+    Object.values(deadlines).forEach((d) => why[d.label] = (why[d.label] || 0) + 1);
+    $("k-bench-sub").textContent = nBench ? Object.entries(why).map(([l, n]) => `${n} ${l}`).join(", ") : "every key available";
+
+    renderSpark(s.minutes || []);
+    renderChart(s.minutes || []);
+    renderBench();
+    renderFeed(s.recent || []);
+    renderCombos();
+    renderKinds(s.kinds || {});
+    renderTargets();
+    nmRender(s);
+    if (page === 'providers') fillProviderStats();
+  }
+
+
+  // ---- Solari-board scramble: letters spin before settling ----
+  const FLAP = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function scramble(el) {
+    if (calm()) return;
+    const final = el.textContent, t0 = performance.now(), dur = 520 + Math.random() * 200;
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / dur), fixed = Math.floor(p * final.length);
+      el.textContent = final.slice(0, fixed) + [...final.slice(fixed)].map((c) => c === " " || c === "/" ? c : FLAP[Math.random() * 36 | 0]).join("");
+      if (p < 1) requestAnimationFrame(step); else el.textContent = final;
+    };
+    requestAnimationFrame(step);
+  }
+
+  // ---- live routing map: apps → tako → providers, one train per request ----
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const nm = { key: "", tracks: {}, stations: {}, feeder: null, hub: null, layer: null, seen: new Set(), primed: false, queue: [], running: 0 };
+  const mk = (tag, attrs = {}, parent) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+  const baseTag = (t) => String(t).replace(/ \(key \d+\)$/, "");
+  function nmTargets() {
+    const out = [];
+    Object.values(overview?.combos || {}).flat().forEach((t) => { if (!out.includes(t)) out.push(t); });
+    return out;
+  }
+  function nmBuild() {
+    const svg = $("netmap"), w = Math.max(320, svg.clientWidth || svg.parentElement.clientWidth);
+    const all = nmTargets(), targets = all.slice(0, 9), narrow = w < 640;
+    const key = w + "|" + targets.join(",");
+    if (key === nm.key) return; nm.key = key;
+    svg.innerHTML = ""; nm.tracks = {}; nm.stations = {};
+    const rowH = 40, h = Math.max(230, 70 + targets.length * rowH);
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`); svg.setAttribute("height", h);
+    if (!targets.length) {
+      mk("text", { x: w / 2, y: h / 2, "text-anchor": "middle", class: "empty-msg" }, svg).textContent = "Connect a provider and build a combo to draw your routes.";
+      return;
+    }
+    const cx = narrow ? 34 : 80, cy = h / 2, hx = narrow ? w * .3 : w * .3, sx = narrow ? w * .58 : w * .62;
+    const tracksG = mk("g", {}, svg), stG = mk("g", {}, svg);
+    nm.layer = mk("g", {}, svg);
+    // feeder line: apps → hub
+    nm.feeder = mk("path", { d: `M${cx + 18},${cy} L${hx - 26},${cy}`, class: "trk used", "stroke-width": 5 }, tracksG);
+    const client = mk("g", {}, stG);
+    mk("rect", { x: cx - 18, y: cy - 18, width: 36, height: 36, rx: 6, class: "client" }, client);
+    mk("path", { d: `M${cx - 8},${cy - 6} l6,6 -6,6 M${cx + 1},${cy + 7} h8`, fill: "none", stroke: "#e8ecf3", "stroke-width": 2, "stroke-linecap": "round" }, client);
+    mk("text", { x: cx, y: cy + 36, "text-anchor": "middle", class: "nm-title" }, client).textContent = "Your apps";
+    if (!narrow) mk("text", { x: cx, y: cy + 50, "text-anchor": "middle", class: "nm-sub" }, client).textContent = "Claude Code, SDKs…";
+    // stations + branch tracks
+    const top = (h - (targets.length - 1) * rowH) / 2;
+    targets.forEach((t, i) => {
+      const ty = top + i * rowH, d = `M${hx + 26},${cy} C${hx + (sx - hx) * .55},${cy} ${hx + (sx - hx) * .45},${ty} ${sx - 9},${ty}`;
+      nm.tracks[t] = mk("path", { d, class: "trk", "stroke-width": 3 }, tracksG);
+      const g = mk("g", { "data-t": t }, stG);
+      mk("circle", { cx: sx, cy: ty, r: 7.5, class: "stn" }, g);
+      const cd = mk("circle", { cx: sx, cy: ty, r: 12, class: "cd", "stroke-dasharray": 75.4, "stroke-dashoffset": 75.4 }, g);
+      const lx = sx + 46, prov = provOf(t), lk = logoKey(prov);
+      mk("rect", { x: sx + 18, y: ty - 10, width: 20, height: 20, rx: 5, fill: lk ? "#fff" : (MONO[prov] || PALETTE[[...prov].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 0) % PALETTE.length]) }, g);
+      if (lk && LOGOS[lk]) { const inner = mk("svg", { x: sx + 21, y: ty - 7, width: 14, height: 14, viewBox: LOGOS[lk].v, fill: "#111" }, g); inner.innerHTML = LOGOS[lk].i; }
+      else mk("text", { x: sx + 28, y: ty + 4, "text-anchor": "middle", style: "font: 700 10px var(--sign); fill: #fff" }, g).textContent = (catalog.find((e) => e.id === prov)?.name || prov).replace(/[^A-Za-z0-9]/g, "").slice(0, 1).toUpperCase();
+      const label = mk("text", { x: lx, y: ty + 1 }, g);
+      const maxCh = Math.max(8, Math.floor((w - lx - 12) / 7.6));
+      label.textContent = t.length > maxCh ? t.slice(0, maxCh - 1) + "…" : t;
+      mk("title", {}, g).textContent = t;
+      const why = mk("text", { x: lx, y: ty + 14, class: "nm-why" }, g);
+      nm.stations[t] = { g, x: sx, y: ty, cd, why };
+    });
+    if (all.length > targets.length) mk("text", { x: sx + 46, y: h - 10, class: "nm-sub" }, stG).textContent = `+${all.length - targets.length} more in Combos`;
+    // hub
+    const hub = mk("g", {}, svg);
+    mk("circle", { cx: hx, cy, r: 26, fill: "var(--board)" }, hub);
+    mk("circle", { cx: hx, cy, r: 22, class: "hub-ring" }, hub);
+    const orbit = mk("g", { class: "hub-orbit", style: `transform-origin:${hx}px ${cy}px` }, hub);
+    mk("circle", { cx: hx, cy: cy - 22, r: 5, class: "hub-moon", stroke: "var(--board)", "stroke-width": 2 }, orbit);
+    nm.hub = { g: hub, ring: hub.querySelector('.hub-ring'), x: hx, y: cy, num: mk("text", { x: hx, y: cy + 5, class: "hub-num" }, hub), orbit };
+    mk("text", { x: hx, y: cy + 46, class: "hub-unit" }, hub).textContent = "req / min";
+    mk("text", { x: hx, y: cy - 36, "text-anchor": "middle", class: "nm-title" }, hub).textContent = "tako";
+    // draw the lines in once, on first build
+    if (!calm() && !nm.drawn) {
+      nm.drawn = true;
+      [nm.feeder, ...Object.values(nm.tracks)].forEach((p, i) => {
+        const L = p.getTotalLength();
+        p.animate([{ strokeDasharray: `${L} ${L}`, strokeDashoffset: L }, { strokeDasharray: `${L} ${L}`, strokeDashoffset: 0 }], { duration: 900, delay: 120 + i * 70, easing: "cubic-bezier(.6,0,.2,1)", fill: "backwards" });
+      });
+    }
+  }
+  function nmRender(s) {
+    if (!overview) return;
+    nmBuild();
+    if (!nm.hub) return;
+    // hub: requests in the current minute, spin speed follows traffic
+    const nowMin = Math.floor(Date.now() / 60000), cur = (s.minutes || []).find((m) => m[0] === nowMin), prev = (s.minutes || []).find((m) => m[0] === nowMin - 1);
+    const rpm = Math.max(cur ? cur[1] + cur[2] : 0, prev ? prev[1] + prev[2] : 0);
+    nm.hub.num.textContent = rpm;
+    nm.hub.orbit.style.setProperty("--spin", `${Math.max(.9, 8 / Math.sqrt(1 + rpm))}s`);
+    // track weight by share of successful traffic, station state from health
+    const okTot = Math.max(1, ...Object.keys(nm.tracks).map((t) => s.stats?.[t]?.ok || 0));
+    for (const [t, p] of Object.entries(nm.tracks)) {
+      const st = targetState(t), ok = s.stats?.[t]?.ok || 0, stn = nm.stations[t];
+      p.setAttribute("stroke-width", ok ? 3 + 5 * ok / okTot : 3);
+      p.classList.toggle("used", ok > 0); p.classList.toggle("down", st.cls === "benched");
+      stn.g.setAttribute("class", st.cls);
+      stn.why.textContent = st.why || "";
+      const cool = Object.entries(deadlines).find(([k]) => baseTag(k) === t);
+      stn.cd.dataset.until = cool ? cool[1].until : ""; stn.cd.dataset.total = cool ? cool[1].total : "";
+    }
+    nmTickCooldowns();
+    // enqueue a train for every request we haven't drawn yet
+    const groups = [];
+    for (const e of s.recent || []) { const g = groups[groups.length - 1]; if (g && e.req != null && g.req === e.req) g.items.push(e); else groups.push({ req: e.req ?? `${e.t}-${groups.length}`, items: [e] }); }
+    for (const g of groups) {
+      if (nm.seen.has(g.req)) continue;
+      nm.seen.add(g.req);
+      if (nm.primed && !document.hidden) nm.queue.push(g.items);
+    }
+    while (nm.seen.size > 1000) nm.seen.delete(nm.seen.values().next().value);
+    nm.primed = true;
+    nm.queue = nm.queue.slice(-14);
+    nmLaunch();
+  }
+  function nmTickCooldowns() {
+    const now = Date.now();
+    for (const stn of Object.values(nm.stations)) {
+      const until = +stn.cd.dataset.until, total = +stn.cd.dataset.total;
+      stn.cd.setAttribute("stroke-dashoffset", until && total ? 75.4 * (1 - Math.max(0, Math.min(1, (until - now) / 1000 / total))) : 75.4);
+    }
+  }
+  setInterval(nmTickCooldowns, 250);
+  function nmLaunch() {
+    while (nm.queue.length && nm.running < 6) {
+      const items = nm.queue.shift(); nm.running++;
+      setTimeout(() => runTrain(items).finally(() => { nm.running--; nmLaunch(); }), nm.running * 140);
+    }
+  }
+  function ride(dot, path, dur, reverse = false) {
+    return new Promise((done) => {
+      const L = path.getTotalLength(), t0 = performance.now();
+      const step = (now) => {
+        if (!dot.isConnected) return done();
+        const p = Math.min(1, (now - t0) / dur), e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+        const pt = path.getPointAtLength(L * (reverse ? 1 - e : e));
+        dot.setAttribute("transform", `translate(${pt.x},${pt.y})`);
+        if (p < 1) requestAnimationFrame(step); else done();
+      };
+      requestAnimationFrame(step);
+    });
+  }
+  function signal(x, y, ok, text) {
+    const color = ok ? "var(--good)" : "var(--critical)";
+    const ring = mk("circle", { cx: x, cy: y, r: 9, class: "burst", stroke: color }, nm.layer);
+    ring.animate([{ transform: "scale(1)", opacity: 1 }, { transform: "scale(3.2)", opacity: 0 }], { duration: 900, easing: "cubic-bezier(.2,.7,.2,1)" }).onfinish = () => ring.remove();
+    if (text) {
+      const label = mk("text", { x: x - 14, y: y - 12, class: "float", fill: ok ? "#7fdc95" : "#ff8f88", "text-anchor": "end" }, nm.layer);
+      label.textContent = text;
+      label.animate([{ transform: "translateY(4px)", opacity: 0 }, { transform: "translateY(0)", opacity: 1, offset: .15 }, { transform: "translateY(-14px)", opacity: 0 }], { duration: 1700, easing: "ease-out" }).onfinish = () => label.remove();
+    }
+  }
+  async function runTrain(items) {
+    if (!nm.layer || !nm.layer.isConnected) return;
+    const steps = items.filter((e) => nm.tracks[baseTag(e.target)]);
+    if (calm()) { for (const e of steps) { const st = nm.stations[baseTag(e.target)]; signal(st.x, st.y, !e.kind, ""); } return; }
+    const dot = mk("g", {}, nm.layer);
+    mk("circle", { r: 9, class: "train-glow" }, dot); mk("circle", { r: 4.5, class: "train" }, dot);
+    await ride(dot, nm.feeder, 380);
+    nm.hub.ring.animate([{ stroke: "var(--flap)", strokeWidth: 6 }, { stroke: "var(--blue)", strokeWidth: 4 }], { duration: 500, easing: "ease-out" });
+    for (let i = 0; i < steps.length; i++) {
+      const e = steps[i], tag = baseTag(e.target), path = nm.tracks[tag], st = nm.stations[tag];
+      if (!path || !path.isConnected) break;
+      await ride(dot, path, 620);
+      const ok = !e.kind;
+      signal(st.x, st.y, ok, ok ? fmtMs(e.ms) : `${e.status || "ERR"} ${e.label || ""}`.trim());
+      if (!ok && i < steps.length - 1) await ride(dot, path, 420, true);
+    }
+    dot.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300 }).onfinish = () => dot.remove();
+  }
+  if (window.ResizeObserver) new ResizeObserver(() => { if (status && overview) nmRender(status); }).observe($("netmap").parentElement);
+
+  // ---- KPI sparkline: total attempts per minute, last 30 min ----
+  function renderSpark(minutes) {
+    const nowMin = Math.floor(Date.now() / 60000), map = new Map(minutes.map(([t, ok, fail]) => [t, ok + fail]));
+    const pts = []; for (let m = nowMin - 29; m <= nowMin; m++) pts.push(map.get(m) || 0);
+    const max = Math.max(1, ...pts), xy = pts.map((v, i) => [i / 29 * 100, 38 - v / max * 30]);
+    let d = `M${xy[0][0]},${xy[0][1]}`;
+    for (let i = 1; i < xy.length; i++) { const [x0, y0] = xy[i - 1], [x1, y1] = xy[i], cx = (x0 + x1) / 2; d += ` C${cx},${y0} ${cx},${y1} ${x1},${y1}`; }
+    const svg = $("k-spark"); svg.querySelector(".line").setAttribute("d", d); svg.querySelector(".area").setAttribute("d", d + " L100,40 L0,40 Z");
+  }
+
+  // ---- traffic chart ----
+  function renderChart(minutes) {
+    const nowMin = Math.floor(Date.now() / 60000);
+    const map = new Map(minutes.map(([t, ok, fail]) => [t, [ok, fail]]));
+    const cols = [];
+    for (let m = nowMin - 59; m <= nowMin; m++) cols.push([m, ...(map.get(m) || [0, 0])]);
+    const max = Math.max(1, ...cols.map((c) => c[1] + c[2]));
+    const nice = max <= 4 ? 4 : Math.ceil(max / 4) * 4;
+    $("axis").innerHTML = [1, .5, 0].map((f) => `<div style="top:${(1 - f) * 100}%"><span>${Math.round(nice * f)}</span></div>`).join("");
+    const bars = $("bars");
+    if (bars.children.length !== 60) {
+      bars.innerHTML = cols.map((_, i) => `<div class="bar${i === 59 ? " now" : ""}"><div class="seg ok" style="height:0;transition-delay:${i * 12}ms"></div><div class="seg fail" style="height:0;transition-delay:${i * 12}ms"></div></div>`).join("");
+      setTimeout(() => bars.querySelectorAll(".seg").forEach((s) => s.style.transitionDelay = ""), 1800);
+      [...bars.children].forEach((b, i) => {
+        b.onmousemove = (e) => { const c = b._c; if (!c) return;
+          showTip(e, `<b>${new Date(c[0] * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</b><br>${c[1]} succeeded · ${c[2]} failed attempts`); };
+        b.onmouseleave = hideTip;
+      });
+    }
+    cols.forEach((c, i) => {
+      const b = bars.children[i]; b._c = c;
+      const [ok, fail] = [c[1], c[2]];
+      b.children[0].style.height = `${ok / nice * 100}%`;
+      b.children[1].style.height = `${fail / nice * 100}%`;
+      b.children[0].style.borderRadius = fail ? "0" : "4px 4px 0 0";
+    });
+  }
+
+  // ---- benched ----
+  function renderBench() {
+    const entries = Object.entries(deadlines).sort((a, b) => a[1].until - b[1].until);
+    $("bench-count").textContent = entries.length ? entries.length : "";
+    $("clear-all").hidden = !entries.length;
+    const box = $("bench");
+    if (!entries.length) {
+      if (box.dataset.keys === "") return; box.dataset.keys = "";
+      box.innerHTML = `<div class="allclear">${ICON.good}Every key and model is available. Failing ones show up here with the reason and when they're retried.</div>`;
+      return;
+    }
+    const keys = entries.map((e) => e[0]).join("|");
+    if (box.dataset.keys !== keys) {
+      box.dataset.keys = keys;
+      box.innerHTML = entries.map(([k, d]) => `<div class="bitem" data-k="${esc(k)}">
+        <div class="top"><span class="who" title="${esc(k)}">${withLogo(k)}</span>${chip(d.kind, d.label)}</div>
+        <div class="top" style="margin-top:6px"><span class="left" data-left></span><span class="spacer"></span><button class="btn sm" data-clear="${esc(k)}">${ic("refresh")}Retry now</button></div>
+        <div class="track"><div class="s-${SEV[d.kind] || "neutral"}" data-bar></div></div></div>`).join("");
+      box.querySelectorAll("[data-clear]").forEach((b) => b.onclick = () => clearCooldown(b.dataset.clear));
+    }
+    tickBench();
+  }
+  function tickBench() {
+    const now = Date.now();
+    document.querySelectorAll("#bench .bitem").forEach((el) => {
+      const d = deadlines[el.dataset.k]; if (!d) return;
+      const left = Math.max(0, Math.ceil((d.until - now) / 1000));
+      el.querySelector("[data-left]").textContent = left ? `back in ${fmtDur(left)}` : "retrying…";
+      el.querySelector("[data-bar]").style.width = `${Math.max(0, Math.min(100, left / d.total * 100))}%`;
+    });
+  }
+  setInterval(tickBench, 250);
+
+  async function clearCooldown(key) {
+    try {
+      const r = await fetch("/api/cooldowns/clear", { method: "POST", headers: { "content-type": "application/json", "x-tako": "1" }, body: JSON.stringify(key ? { key } : {}) });
+      const j = await r.json();
+      toast(j.cleared ? `${j.cleared} back in rotation` : "Nothing to clear");
+      poll();
+    } catch { toast("Couldn't reach tako"); }
+  }
+  $("clear-all").onclick = () => clearCooldown(null);
+
+  // ---- live feed ----
+  function renderFeed(recent) {
+    const groups = [];
+    for (const e of recent) {
+      const g = groups[groups.length - 1];
+      if (g && e.req != null && g.req === e.req) g.items.push(e); else groups.push({ req: e.req ?? `${e.t}-${groups.length}`, items: [e] });
+    }
+    groups.reverse();
+    const box = $("feed");
+    if (!groups.length) { box.innerHTML = box._html = `<div class="board-empty"><b>No requests yet</b>Point a client at the endpoint above, or run <code>tako claude</code>. Each request shows up here as it arrives.</div>`; return; }
+    const query = $("request-search").value.toLowerCase(), filter = $("request-filter").value;
+    const filtered = groups.filter(g => {
+      const last = g.items[g.items.length - 1];
+      return g.items.some(e => (e.model + " " + e.target).toLowerCase().includes(query)) &&
+        (filter === "all" || (filter === "failed" ? !!last.kind : !last.kind && g.items.length > 1));
+    });
+    feedGroups.clear();
+    const feedHtml = filtered.length ? filtered.slice(0, 40).map((g) => {
+      const last = g.items[g.items.length - 1], ok = !last.kind;
+      const fallbacks = g.items.length - 1;
+      const steps = g.items.map((e, i) => {
+        const okStep = !e.kind;
+        const code = e.status || "ERR";
+        return `<span class="step ${okStep ? "okk" : "failed"}" title="${esc(e.target)} · ${esc(e.label || "ok")} · ${fmtMs(e.ms)}">` +
+          `<span class="st ${okStep ? "" : "s-" + (SEV[e.kind] || "neutral")}">${code}</span>${esc(e.target)}` +
+          `<span style="color:var(--muted)">${okStep ? fmtMs(e.ms) : esc(e.label)}${e.tokens ? ` · ${e.tokens.estimated_requests ? "~" : ""}${e.tokens.total_tokens.toLocaleString()} tokens` : ""}</span></span>`;
+      }).join("");
+      const isNew = !firstFeed && !seenReqs.has(g.req);
+      const lastStep = g.items[g.items.length - 1];
+      const status = ok ? (fallbacks ? `<span class="status diverted" data-flap title="served after ${fallbacks} fallback${fallbacks > 1 ? "s" : ""}">Diverted</span>` : `<span class="status" data-flap>Served</span>`) : `<span class="status failed" data-flap>Failed</span>`;
+      const served = ok ? `${plogo(provOf(lastStep.target), "sm")}<span>${esc(lastStep.target)}</span><small>${fmtMs(lastStep.ms)}${lastStep.tokens ? ` · ${lastStep.tokens.estimated_requests ? "~" : ""}${lastStep.tokens.total_tokens.toLocaleString()} tokens` : ""}</small>` : `<span style="color:#ff8f88">no target answered</span>`;
+      feedGroups.set(String(g.req), g.items);
+      return `<div class="req${isNew ? " enter" : ""}" data-req="${esc(String(g.req))}" tabindex="0" role="button" aria-label="Inspect request ${esc(g.items[0].model)} at ${clock(g.items[0].t)}"><span class="time">${clock(g.items[0].t)}</span><span class="route" data-flap title="${esc(g.items[0].model)}">${esc(g.items[0].model)}</span><div class="via"><div class="served">${served}</div>${fallbacks || !ok ? `<div class="steps">${steps}</div>` : ""}</div>${status}</div>`;
+    }).join("") : `<div class="empty">No requests match your filters.</div>`;
+    if (box._html !== feedHtml) { box.innerHTML = box._html = feedHtml; box.querySelectorAll(".req.enter [data-flap]").forEach(scramble); }
+    groups.forEach((g) => seenReqs.add(g.req));
+    while (seenReqs.size > 1000) seenReqs.delete(seenReqs.values().next().value);
+    firstFeed = false;
+  }
+
+  // ---- combos ----
+  function targetState(tag) {
+    const cool = Object.entries(deadlines).filter(([k]) => k === tag || k.startsWith(tag + " (key "));
+    const p = overview?.providers?.[tag.split("/")[0]];
+    const keyCount = Math.max(1, p?.keys || 1);
+    if (p?.disabled) return { cls: "benched", why: "no key" };
+    if (cool.length && cool.length >= keyCount) return { cls: "benched", why: cool[0][1].label };
+    const le = status?.last_error?.[tag];
+    if (cool.length) return { cls: "warn", why: `${cool.length}/${keyCount} keys out` };
+    if (le && Date.now() / 1000 - le.t < 120) return { cls: "warn", why: le.label };
+    if (status?.stats?.[tag]?.ok) return { cls: "ok", why: "" };
+    return { cls: "", why: "" };
+  }
+  function renderCombos() {
+    const box = $("combos");
+    const combos = overview?.combos || {};
+    const names = Object.keys(combos);
+    if (!names.length) { box.innerHTML = `<div class="empty">No combos yet. Open Providers to connect an API, then pick models for a combo.</div>`; return; }
+    const lastOk = [...(status?.recent || [])].reverse().find((e) => !e.kind);
+    const liveTag = lastOk && Date.now() / 1000 - lastOk.t < 8 ? lastOk.target.replace(/ \(key \d+\)$/, "") : null;
+    const html = names.map((n) => {
+      const isDef = overview.default === n;
+      const nodes = combos[n].map((t, i) => {
+        const st = targetState(t);
+        return `<span class="node ${st.cls}${t === liveTag ? " live" : ""}" title="${esc(t)}"><span class="nd"></span><span class="lbl">${plogo(provOf(t), "sm")}<span>${esc(t.slice(provOf(t).length + 1) || t)}</span></span>${st.why ? `<span class="why">${esc(st.why)}</span>` : ""}</span>`;
+      }).join("");
+      return `<div class="combo"><div class="combo-name">${esc(n)}${isDef ? `<span class="tag">default</span>` : ""}</div><div class="chain">${nodes}</div></div>`;
+    }).join("");
+    if (box._html !== html) box.innerHTML = box._html = html;
+  }
+
+  // ---- failure kinds ----
+  function renderKinds(kinds) {
+    const rows = Object.entries(kinds).sort((a, b) => b[1] - a[1]);
+    const box = $("kinds");
+    if (!rows.length) { box.innerHTML = `<div class="empty">No failures since start.</div>`; return; }
+    const max = rows[0][1];
+    const want = rows.map((r) => r[0]).join("|");
+    if (box.dataset.k !== want) {
+      box.dataset.k = want;
+      box.innerHTML = rows.map(([k]) => `<div class="krow" data-kind="${esc(k)}">${chip(k)}<div><div class="kb s-${SEV[k] || "neutral"}" style="width:0;background:var(--${{ critical: "critical", warning: "warning", serious: "serious" }[SEV[k]] || "muted"})"></div></div><span class="kn"></span></div>`).join("");
+    }
+    requestAnimationFrame(() => rows.forEach(([k, n]) => {
+      const row = box.querySelector(`[data-kind="${CSS.escape(k)}"]`); if (!row) return;
+      row.querySelector(".kb").style.width = `${n / max * 100}%`;
+      row.querySelector(".kn").textContent = n;
+    }));
+  }
+
+  // ---- targets ----
+  function renderTargets() {
+    const stats = status?.stats || {};
+    const tags = new Set(Object.keys(stats));
+    Object.values(overview?.combos || {}).flat().forEach((t) => tags.add(t));
+    const rows = [...tags].sort();
+    if (!rows.length) { $("targets").innerHTML = `<tr><td colspan="8" class="empty">No targets configured.</td></tr>`; return; }
+    const html = rows.map((t) => {
+      const s = stats[t] || { ok: 0, fail: 0, avg_ms: 0 };
+      const tot = s.ok + s.fail, st = targetState(t), le = status?.last_error?.[t];
+      const state = st.cls === "benched" ? chip(deadlinesKind(t) || "auth", st.why)
+        : st.cls === "warn" ? `<span class="chip s-warning">${ICON.warning}${esc(st.why)}</span>`
+        : st.cls === "ok" ? `<span class="chip s-good">${ICON.good}healthy</span>` : `<span class="chip s-neutral">${ICON.neutral}unused</span>`;
+      return `<tr><td class="mono">${withLogo(t)}</td><td class="num">${s.ok}</td><td class="num">${s.fail}</td><td class="num">${s.ok ? fmtMs(s.avg_ms) : "–"}</td>
+        <td><div class="rate">${tot ? `<div class="ok" style="width:${s.ok / tot * 100}%"></div><div class="fail" style="width:${s.fail / tot * 100}%"></div>` : ""}</div></td>
+        <td class="num">${status?.token_targets?.[t] ? `${status.token_targets[t].estimated_requests ? "~" : ""}${status.token_targets[t].total_tokens.toLocaleString()}` : "–"}</td><td>${state}</td><td class="lasterr" title="${esc(le?.msg || "")}">${le ? `${esc(le.label)} · ${esc(le.msg)}` : ""}</td></tr>`;
+    }).join("");
+    const tb = $("targets"); if (tb._html !== html) tb.innerHTML = tb._html = html;
+  }
+  function deadlinesKind(tag) {
+    const e = Object.entries(deadlines).find(([k]) => k === tag || k.startsWith(tag + " (key "));
+    return e ? e[1].kind : null;
+  }
+
+  // ---- workspace navigation and shared actions ----
+  let dialogVersion = 0;
+  let page = 'dashboard', catalog = [], selectedCombo = null, workspaceKey = '', chatMessages = [], chatBusy = false, logLines = [];
+  const pages = {
+    dashboard: ['Overview', 'Every request, every fallback. One clear view.', 'Add provider'],
+    providers: ['Providers', 'Connect your APIs. Put every key to work.', 'Add provider'],
+    routes: ['Combos', 'Choose the models. Set the order. Let fallback handle the rest.', 'New combo'],
+    chat: ['Playground', 'Try your routes in a conversation, with real fallback and key rotation.', null],
+    connect: ['Connect your tools', 'Choose a model, copy your settings, and send your first request.', null],
+    access: ['Access & keys', 'Protect your panel. Give every app its own key.', null],
+    logs: ['Router logs', 'A closer look at what’s happening under the hood.', 'Refresh logs'],
+  };
+  function navigate(next) {
+    if (!pages[next]) next = 'dashboard';
+    page = next;
+    for (const key of Object.keys(pages)) $('page-' + key).hidden = key !== page;
+    document.querySelectorAll('[data-page]').forEach(b => {
+      b.classList.toggle('active', b.dataset.page === page);
+      if (b.dataset.page === page) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+    const [title, description, action] = pages[page];
+    const h = $('page-title');
+    h.textContent = title;
+    $('page-description').textContent = description;
+    moveIndicator();
+    $('page-action').hidden = !action; $('page-action').innerHTML = action ? ic(page === 'logs' ? 'refresh' : 'plus') + esc(action) : '';
+    if (location.hash !== '#' + page) history.replaceState(null, '', '#' + page);
+    renderWorkspace(true);
+    if (page === 'logs') loadLogs();
+    if (page === 'access') loadSecurity();
+  }
+  function moveIndicator() {
+    const a = document.querySelector('.nav.active'), ind = document.querySelector('.nav-ind'); if (!a || !ind) return;
+    ind.style.height = a.offsetHeight + 'px'; ind.style.transform = `translateY(${a.offsetTop}px)`; ind.style.opacity = 1;
+  }
+  addEventListener('resize', moveIndicator);
+  // keyboard: 1–6 switch pages when not typing
+  const pageKeys = ['dashboard', 'providers', 'routes', 'chat', 'connect', 'logs', 'access'];
+  document.addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey || $('modal').open || !$('cmdk').hidden || drawerReq || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) return;
+    const n = Number(e.key); if (n >= 1 && n <= 7) navigate(pageKeys[n - 1]);
+  });
+
+  // ---- request inspector ----
+  const feedGroups = new Map();
+  let drawerReq = null;
+  function openDrawer(items) {
+    if (!items) return;
+    drawerReq = items;
+    const last = items[items.length - 1], ok = !last.kind, total = items.reduce((a, e) => a + (e.ms || 0), 0);
+    const tokens = items.reduce((a, e) => a + (e.tokens?.total_tokens || 0), 0);
+    $('dr-title').textContent = items[0].model;
+    $('dr-status').innerHTML = ok ? (items.length > 1 ? '<span class="status diverted" style="background:var(--board)">Diverted</span>' : '<span class="status" style="background:var(--board)">Served</span>') : '<span class="status failed" style="background:var(--board)">Failed</span>';
+    let offset = 0;
+    const rows = items.map((e) => {
+      const good = !e.kind, left = total ? offset / total * 100 : 0, width = total ? (e.ms || 0) / total * 100 : 100; offset += e.ms || 0;
+      return `<div class="wf-row"><div class="wf-who">${withLogo(e.target)}<small><b class="${good ? 's-good' : 's-' + (SEV[e.kind] || 'neutral')}">${esc(e.status || 'ERR')}</b>${esc(good ? 'served' : (e.label || e.kind))}${e.tokens ? ` · ${e.tokens.estimated_requests ? '~' : ''}${e.tokens.total_tokens.toLocaleString()} tokens` : ''}</small></div>
+        <div class="wf-track"><div class="wf-bar ${good ? 'ok' : 'fail'}${left + width > 72 && width > 18 ? ' in' : ''}" style="left:${left}%;width:${Math.max(.8, width)}%"><span>${fmtMs(e.ms || 0)}</span></div></div></div>`;
+    }).join('');
+    const hops = items.map((e, i) => (i ? ic('route') : '') + `<span class="hop ${e.kind ? 'fail' : 'ok'}">${plogo(provOf(e.target), 'sm')}${esc(e.target)}</span>`).join('');
+    $('dr-body').innerHTML = `<div class="dr-facts"><div><span>Started</span><b>${clock(items[0].t)}</b></div><div><span>Total time</span><b>${fmtMs(total)}</b></div><div><span>Attempts</span><b>${items.length}</b></div><div><span>Outcome</span><b class="${ok ? 's-good' : 's-critical'}">${ok ? (items.length > 1 ? 'Saved' : 'First try') : 'Failed'}</b></div><div><span>Fallbacks</span><b>${items.length - 1}</b></div><div><span>Tokens</span><b>${tokens ? tokens.toLocaleString() : '–'}</b></div></div>
+      <h4 class="dr-sec">${ic('route')}Route taken</h4><div class="dr-route">${hops}</div>
+      <h4 class="dr-sec">${ic('clock')}Timeline</h4><div class="wf">${rows}</div>
+      <details><summary>Raw attempt data</summary><pre>${esc(JSON.stringify(items, null, 2))}</pre></details>`;
+    $('drawer').classList.add('on'); $('drawer').setAttribute('aria-hidden', 'false'); $('scrim').classList.add('on');
+    $('dr-close').focus();
+  }
+  function closeDrawer() { $('drawer').classList.remove('on'); $('drawer').setAttribute('aria-hidden', 'true'); $('scrim').classList.remove('on'); drawerReq = null; }
+  $('feed').addEventListener('click', (e) => { const r = e.target.closest('.req[data-req]'); if (r) openDrawer(feedGroups.get(r.dataset.req)); });
+  $('feed').addEventListener('keydown', (e) => { const r = e.target.closest('.req[data-req]'); if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDrawer(feedGroups.get(r.dataset.req)); } });
+  $('dr-close').onclick = closeDrawer; $('scrim').onclick = closeDrawer;
+
+  // ---- provider live stats ----
+  function fillProviderStats() {
+    const stats = status?.stats || {};
+    document.querySelectorAll('[data-pstats]').forEach((el) => {
+      const id = el.dataset.pstats; let ok = 0, fail = 0, ms = 0;
+      for (const [t, v] of Object.entries(stats)) if (provOf(t) === id) { ok += v.ok; fail += v.fail; ms += v.avg_ms * v.ok; }
+      const n = ok + fail;
+      if (!n) { el.className = 'pstats idle'; el.textContent = 'No traffic yet'; return; }
+      const pct = ok / n * 100;
+      el.className = 'pstats';
+      el.innerHTML = `<div><span>Attempts</span><b>${n.toLocaleString()}</b></div><div><span>Success</span><b class="${pct >= 90 ? 's-good' : pct >= 60 ? 's-warning' : 's-critical'}">${pct.toFixed(pct === 100 || pct === 0 ? 0 : 1)}%</b></div><div><span>Avg latency</span><b>${ok ? fmtMs(Math.round(ms / ok)) : '–'}</b></div><div class="bar"><i style="width:${pct}%;background:var(--good)"></i><i style="width:${100 - pct}%;background:var(--critical)"></i></div>`;
+    });
+  }
+
+  // ---- command menu (⌘K) ----
+  let cmdItems = [], cmdShown = [], cmdAt = 0;
+  function cmdBuild() {
+    const items = [];
+    document.querySelectorAll('.nav[data-page]').forEach((b) => items.push({ group: 'Pages', icon: b.querySelector('svg')?.outerHTML || '', label: b.textContent.replace(/\d+$/, '').trim(), hint: 'Go to', run: () => navigate(b.dataset.page) }));
+    items.push(
+      { group: 'Actions', icon: ic('plus'), label: 'Add a provider', run: () => addProvider() },
+      { group: 'Actions', icon: ic('route'), label: 'Create a combo', run: () => { navigate('routes'); editCombo(null); } },
+      { group: 'Actions', icon: ic('chat'), label: 'Start a new conversation', run: () => { navigate('chat'); resetChat(); $('chat-input').focus(); } },
+      { group: 'Actions', icon: ic('copy'), label: 'Copy OpenAI endpoint', hint: `${origin}/v1`, run: () => copyText(`${origin}/v1`) },
+      { group: 'Actions', icon: ic('copy'), label: 'Copy Anthropic endpoint', hint: origin, run: () => copyText(origin) },
+      { group: 'Actions', icon: ic('refresh'), label: 'Retry every benched key now', run: () => clearCooldown(null) },
+      { group: 'Actions', icon: ic('moon'), label: 'Switch light / dark theme', run: () => $('theme').click() },
+    );
+    for (const n of Object.keys(overview?.combos || {})) items.push({ group: 'Combos', icon: ic('route'), label: n, hint: `${overview.combos[n].length} models${overview.default === n ? ' · default' : ''}`, run: () => { selectedCombo = n; navigate('routes'); renderRoutes(); } });
+    for (const id of Object.keys(overview?.providers || {})) items.push({ group: 'Connected providers', icon: plogo(id, 'sm'), label: catalog.find((e) => e.id === id)?.name || id, hint: 'Browse models', run: () => modelPicker(id) });
+    for (const e of catalog.filter((e) => !overview?.providers?.[e.id])) items.push({ group: 'Connect a provider', icon: plogo(e.id, 'sm'), label: e.name, hint: e.tier, run: () => addProvider(e.id) });
+    return items;
+  }
+  function cmdRender() {
+    const q = $('cmdk-q').value.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean);
+    cmdShown = cmdItems.filter((it) => words.every((w) => (it.label + ' ' + it.group + ' ' + (it.hint || '')).toLowerCase().includes(w)));
+    if (q && cmdAt === -1) { const best = cmdShown.findIndex((it) => it.label.toLowerCase().startsWith(q)); cmdAt = best < 0 ? 0 : best; }
+    cmdAt = Math.max(0, Math.min(cmdAt, cmdShown.length - 1));
+    let html = '', group = '';
+    cmdShown.forEach((it, i) => {
+      if (it.group !== group) { group = it.group; html += `<div class="cmdk-group">${esc(group)}</div>`; }
+      html += `<button class="cmdk-item${i === cmdAt ? ' on' : ''}" role="option" aria-selected="${i === cmdAt}" data-i="${i}">${it.icon}<span>${esc(it.label)}</span>${it.hint ? `<span class="hint">${esc(it.hint)}</span>` : ''}</button>`;
+    });
+    $('cmdk-list').innerHTML = html || `<div class="cmdk-empty">Nothing matches “${esc(q)}”.</div>`;
+    $('cmdk-list').querySelector('.on')?.scrollIntoView({ block: 'nearest' });
+  }
+  function cmdOpen() { cmdItems = cmdBuild(); cmdAt = 0; $('cmdk-q').value = ''; $('cmdk').hidden = false; cmdRender(); $('cmdk-q').focus(); }
+  function cmdClose() { $('cmdk').hidden = true; }
+  function cmdRun(i) { const it = cmdShown[i]; if (!it) return; cmdClose(); it.run(); }
+  $('cmdk-open').onclick = cmdOpen;
+  $('cmdk-q').oninput = () => { cmdAt = -1; cmdRender(); };
+  $('cmdk-list').addEventListener('click', (e) => { const b = e.target.closest('.cmdk-item'); if (b) cmdRun(+b.dataset.i); });
+  $('cmdk-list').addEventListener('mousemove', (e) => { const b = e.target.closest('.cmdk-item'); if (b && +b.dataset.i !== cmdAt) { cmdAt = +b.dataset.i; cmdRender(); } });
+  $('cmdk').addEventListener('mousedown', (e) => { if (e.target === $('cmdk')) cmdClose(); });
+  $('cmdk-q').addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); cmdAt = Math.min(cmdShown.length - 1, cmdAt + 1); cmdRender(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); cmdAt = Math.max(0, cmdAt - 1); cmdRender(); }
+    else if (e.key === 'Enter') { e.preventDefault(); cmdRun(cmdAt); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('cmdk').hidden ? cmdOpen() : cmdClose(); return; }
+    if (e.key === 'Escape') { if (!$('cmdk').hidden) { cmdClose(); e.preventDefault(); } else if (drawerReq) closeDrawer(); }
+  });
+
+  document.querySelectorAll('[data-page]').forEach(b => b.onclick = () => navigate(b.dataset.page));
+  window.addEventListener('hashchange', () => navigate(location.hash.slice(1)));
+  $('page-action').onclick = () => page === 'routes' ? editCombo(null) : page === 'logs' ? loadLogs() : addProvider();
+  async function action(data) {
+    return requestJSON('/api/action', {method: 'POST', headers: {'content-type': 'application/json', 'x-tako': '1'}, body: JSON.stringify(data)});
+  }
+  async function refreshWorkspace() { await pollOverview(); workspaceKey = ''; renderWorkspace(true); }
+  async function perform(button, data) {
+    button.disabled = true;
+    try { const v = await action(data); toast(v.message || 'Saved'); await refreshWorkspace(); }
+    catch (e) { toast(e.message); }
+    finally { button.disabled = false; }
+  }
+  async function copyText(value) {
+    try { await navigator.clipboard.writeText(value); toast('Copied to clipboard'); return true; }
+    catch { toast('Clipboard unavailable. Select and copy the text.'); return false; }
+  }
+  function dialog(title, description, body, label, submit) {
+    ++dialogVersion;
+    const modal = $('modal');
+    $('dialog-title').textContent = title; $('dialog-description').textContent = description;
+    $('dialog-body').innerHTML = body; $('dialog-error').textContent = '';
+    $('dialog-submit').classList.remove('danger');
+    $('dialog-submit').textContent = label; $('dialog-submit').disabled = false;
+    $('dialog-form').onsubmit = async e => {
+      e.preventDefault(); const b = $('dialog-submit'); b.disabled = true; $('dialog-error').textContent = '';
+      try { await submit(); modal.close(); }
+      catch (error) { $('dialog-error').textContent = error.message; }
+      finally { b.disabled = false; }
+    };
+    if (!modal.open) modal.showModal();
+  }
+  $('dialog-cancel').onclick = () => { if (!$('dialog-submit').disabled) $('modal').close(); };
+  $('modal').addEventListener('cancel', e => { if ($('dialog-submit').disabled) e.preventDefault(); });
+  function confirmAction(title, description, data) {
+    dialog(title, description, '', 'Remove', async () => { await action(data); await refreshWorkspace(); toast('Removed'); });
+  }
+  function renderWorkspace(force = false) {
+    const key = JSON.stringify([overview, catalog]);
+    if (!force && key === workspaceKey) return;
+    workspaceKey = key;
+    renderProviders(); renderRoutes(); renderConnect(); updateChatModels(); renderSetup();
+  }
+  function renderSetup() {
+    const box = $('onboarding');
+    if (!overview) return;
+    const connected = Object.keys(overview.providers || {}).length > 0;
+    const routed = Object.keys(overview.combos || {}).length > 0;
+    const served = (status?.requests?.first_try || 0) + (status?.requests?.rescued || 0) > 0;
+    const state = JSON.stringify([connected, routed, served]);
+    if (renderSetup.state === state) return;
+    renderSetup.state = state;
+    box.hidden = connected && routed && served;
+    const steps = [
+      [connected, 'Connect a provider', 'Bring an API key or connect a local model.', 'providers', 'Choose provider'],
+      [routed, 'Build a fallback combo', 'Pick models and the order tako should try them.', 'routes', 'Set up combo'],
+      [served, 'Send your first request', 'Try the playground, then connect your tools.', 'chat', 'Open playground'],
+    ];
+    box.innerHTML = `<h2>${connected && routed ? 'Your router is ready' : 'A few stops to your first request'}<span class="count">${steps.filter(s => s[0]).length} of 3 complete</span></h2><div class="setup-steps">${steps.map(([done, title, text, dest, label], i) => `<div class="setup-step ${done ? 'complete' : ''}"><span class="step-dot" aria-label="${done ? 'Complete' : 'Step ' + (i + 1)}">${done ? '✓' : i + 1}</span><div><h3>${title}</h3><p>${text}</p><button class="btn" data-setup="${dest}">${done ? 'Review' : label}</button></div></div>`).join('')}</div>`;
+    box.querySelectorAll('[data-setup]').forEach(b => b.onclick = () => navigate(b.dataset.setup));
+  }
+  // ---- providers ----
+  function renderProviders() {
+    const query = $('provider-search').value.toLowerCase();
+    const configured = Object.entries(overview?.providers || {});
+    const available = catalog.filter(e => !overview?.providers?.[e.id]);
+    const matches = (id, name = '') => (id + ' ' + name).toLowerCase().includes(query);
+    const connectedCards = configured.filter(([id]) => matches(id, catalog.find(e => e.id === id)?.name)).map(([id, p]) => {
+      const e = catalog.find(e => e.id === id);
+      return `<article class="card provider-card connected"><div class="provider-top">${plogo(id, "lg")}<h3>${esc(e?.name || id)}</h3><span class="spacer"></span><span class="tag ${p.disabled || !p.keys ? '' : 'ok'}">${p.disabled ? 'Key unavailable' : p.keys ? p.keys + ' key' + (p.keys === 1 ? '' : 's') : 'No key configured'}</span></div><p>${esc(e?.blurb || 'Custom ' + p.type + ' provider')}</p><div class="detail">${esc(p.base_url)}</div><div class="toolbar"><button class="btn primary" data-provider-models="${esc(id)}">${ic("list")}Browse models</button><button class="btn" data-provider-test="${esc(id)}">${ic("flask")}Test</button><button class="btn" data-provider-key="${esc(id)}">${ic("key")}Add key</button><button class="btn danger" data-provider-remove="${esc(id)}">${ic("trash")}Remove</button></div><div class="pstats idle" data-pstats="${esc(id)}">No traffic yet</div><div class="detail" data-test-result="${esc(id)}" role="status"></div></article>`;
+    }).join('');
+    const availableCards = available.filter(e => matches(e.id, e.name)).map(e => `<article class="card provider-card"><div class="provider-top">${plogo(e.id, "lg")}<h3>${esc(e.name)}</h3><span class="spacer"></span><span class="tag">${esc(e.tier)}</span></div><p>${esc(e.blurb)}</p><div class="detail">${esc(e.limits)}</div><div class="toolbar"><button class="btn" data-provider-add="${esc(e.id)}">${ic("plus")}Connect</button>${e.key_url ? `<a href="${esc(e.key_url)}" target="_blank" rel="noreferrer" class="btn">${ic("external")}Get API key</a>` : ''}</div></article>`).join('');
+    $('provider-content').innerHTML = `<div class="section-label">Connected <span class="count">${configured.length}</span></div>${connectedCards ? `<div class="provider-grid">${connectedCards}</div>` : `<div class="card empty-state"><h3>${configured.length ? 'No matching providers' : 'Your first connection starts here'}</h3><p>Connect a provider below, then pick models for your first combo.</p></div>`}<div class="section-label">Discover providers <span class="count">${available.length}</span></div><div class="provider-grid">${availableCards}</div>`;
+    fillProviderStats();
+    document.querySelectorAll('[data-provider-add]').forEach(b => b.onclick = () => addProvider(b.dataset.providerAdd));
+    document.querySelectorAll('[data-provider-models]').forEach(b => b.onclick = () => modelPicker(b.dataset.providerModels));
+    document.querySelectorAll('[data-provider-key]').forEach(b => b.onclick = () => addKey(b.dataset.providerKey));
+    document.querySelectorAll('[data-provider-remove]').forEach(b => b.onclick = () => confirmAction('Remove ' + b.dataset.providerRemove + '?', 'This also removes its models from every combo. Empty combos and their aliases will be removed.', { action: 'provider.remove', provider: b.dataset.providerRemove }));
+    document.querySelectorAll('[data-provider-test]').forEach(b => b.onclick = async () => {
+      const result = b.closest('.provider-card').querySelector('[data-test-result]'); b.disabled = true; result.textContent = 'Sending a small test request…';
+      try { result.textContent = (await action({ action: 'test', provider: b.dataset.providerTest })).message; }
+      catch (e) { result.textContent = e.message; } finally { b.disabled = false; }
+    });
+  }
+  $('provider-search').oninput = renderProviders;
+  function addProvider(id) {
+    const e = catalog.find(e => e.id === id);
+    dialog(e ? 'Connect ' + e.name : 'Add a provider', 'Choose a built-in provider or connect any compatible API.', `
+      <label class="field">Provider<select id="add-preset"><option value="">Custom provider</option>${catalog.map(p => `<option value="${esc(p.id)}" ${p.id === id ? 'selected' : ''}>${esc(p.name)} · ${esc(p.tier)}</option>`).join('')}</select></label>
+      <label class="field">Name<input id="add-id" value="${esc(e?.id || '')}" placeholder="my-provider" required></label>
+      <label class="field">API format<select id="add-type"><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option></select></label>
+      <label class="field">Base URL<input id="add-url" type="url" value="${esc(e?.base_url || '')}" placeholder="https://api.example.com/v1" required></label>
+      <label class="field" id="account-field" hidden>Cloudflare account ID<input id="add-account" placeholder="32 hexadecimal characters" pattern="[a-fA-F0-9]{32}"></label>
+      <label class="field">API key <span id="key-link"></span><input id="add-secret" type="password" autocomplete="off" placeholder="Paste a key, or env:VARIABLE"></label>
+      <p class="detail" id="add-hint"></p>`, 'Connect', async () => {
+        await action({ action: 'provider.add', provider: $('add-id').value.trim(), type: $('add-type').value, base_url: $('add-url').value.trim(), account_id: $('add-account').value.trim(), key: $('add-secret').value });
+        $('add-secret').value = ''; await refreshWorkspace(); toast('Provider connected. Browse its models to build a combo.');
+      });
+    function preset(p) {
+      $('add-type').value = p?.type || 'openai';
+      $('account-field').hidden = p?.id !== 'cloudflare'; $('add-account').required = p?.id === 'cloudflare';
+      $('key-link').innerHTML = p?.key_url ? `<a href="${esc(p.key_url)}" target="_blank" rel="noreferrer">Get a key ${ic("external")}</a>` : '(optional for local providers)';
+      $('add-hint').textContent = p ? p.limits : 'Use the API base URL supplied by your provider.';
+    }
+    preset(e);
+    $('add-preset').onchange = () => { const p = catalog.find(p => p.id === $('add-preset').value); $('add-id').value = p?.id || ''; $('add-url').value = p?.base_url || ''; $('add-secret').value = ''; preset(p); };
+  }
+  function addKey(id) {
+    dialog('Add a key to ' + id, 'Keys rotate automatically. Existing keys stay configured.', '<label class="field">API key<input id="new-key" type="password" autocomplete="off" required placeholder="Paste a key, or env:VARIABLE"></label>', 'Add key', async () => {
+      await action({ action: 'provider.key', provider: id, key: $('new-key').value }); $('new-key').value = ''; await refreshWorkspace(); toast('Key added');
+    });
+  }
+  // ---- editable fallback chains ----
+  function renderRoutes() {
+    const combos = overview?.combos || {}, names = Object.keys(combos);
+    if (!names.includes(selectedCombo)) selectedCombo = names[0];
+    if (!names.length) { $('route-content').innerHTML = '<div class="card empty-state"><div class="big-ic">${ic("route")}</div><h3>Build your safety net</h3><p>A combo tries models in order. If the first fails, the next takes over.</p><button class="btn primary" id="first-combo">Create a combo</button></div>'; $('first-combo').onclick = () => editCombo(null); return; }
+    const targets = combos[selectedCombo];
+    $('route-content').innerHTML = `<div class="split"><div>${names.map(n => `<button class="combo-choice ${n === selectedCombo ? 'active' : ''}" data-combo="${esc(n)}"><strong>${esc(n)} ${overview.default === n ? `<span class="tag">${ic("star")} default</span>` : ''}</strong><span class="detail">${combos[n].length} model${combos[n].length === 1 ? '' : 's'} in fallback order</span></button>`).join('')}</div><div class="card"><h2>${esc(selectedCombo)}<span class="act"><button class="btn" id="route-default" ${overview.default === selectedCombo ? 'disabled' : ''}>${ic("star")}${overview.default === selectedCombo ? 'Default route' : 'Make default'}</button></span></h2><p class="description">Tried from top to bottom. Move a model to change its priority.</p><div style="margin-top:20px">${targets.map((t, i) => `<div class="route-row" style="--i:${i}"><span class="number">${i + 1}</span><span class="target">${plogo(provOf(t), "sm")}<span>${esc(t)}</span></span><div class="controls"><button class="btn icon" data-move="${i}" data-direction="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move ${esc(t)} up">${ic("up")}</button><button class="btn icon" data-move="${i}" data-direction="1" ${i === targets.length - 1 ? 'disabled' : ''} aria-label="Move ${esc(t)} down">${ic("down")}</button><button class="btn icon danger" data-remove-target="${i}" aria-label="Remove ${esc(t)}">${ic("x")}</button></div></div>`).join('')}</div><div class="toolbar" style="margin-top:18px"><button class="btn primary" id="route-models">${ic("plus")}Add models</button><button class="btn" id="route-edit">${ic("edit")}Edit targets</button><span class="spacer"></span><button class="btn danger" id="route-delete">${ic("trash")}Delete combo</button></div></div></div>`;
+    document.querySelectorAll('[data-combo]').forEach(b => b.onclick = () => { selectedCombo = b.dataset.combo; renderRoutes(); });
+    $('route-default').onclick = e => perform(e.currentTarget, { action: 'combo.default', name: selectedCombo });
+    $('route-delete').onclick = () => confirmAction('Delete ' + selectedCombo + '?', 'This removes the combo and its aliases. If it is the default, choose another default afterward.', { action: 'combo.delete', name: selectedCombo });
+    $('route-models').onclick = () => modelPicker(Object.keys(overview.providers)[0], selectedCombo);
+    $('route-edit').onclick = () => editCombo(selectedCombo);
+    document.querySelectorAll('[data-move]').forEach(b => b.onclick = () => { const t = [...targets], i = Number(b.dataset.move), j = i + Number(b.dataset.direction); [t[i], t[j]] = [t[j], t[i]]; perform(b, { action: 'combo.save', name: selectedCombo, targets: t }); });
+    document.querySelectorAll('[data-remove-target]').forEach(b => b.onclick = () => {
+      if (targets.length === 1) { toast('Keep at least one model, or delete the combo.'); return; }
+      perform(b, { action: 'combo.save', name: selectedCombo, targets: targets.filter((_, i) => i !== Number(b.dataset.removeTarget)) });
+    });
+  }
+  function editCombo(name) {
+    dialog(name ? 'Edit ' + name : 'Create a combo', 'Enter provider/model targets in priority order, one per line. Browse provider models if you need model IDs.', `
+      <label class="field">Combo name<input id="combo-name" value="${esc(name || '')}" placeholder="free" required ${name ? 'readonly' : ''}></label>
+      <label class="field">Targets in fallback order<textarea id="combo-targets" rows="7" required placeholder="openrouter/openrouter/free\ngroq/model-id">${esc((overview?.combos?.[name] || []).join('\n'))}</textarea></label>`, 'Save combo', async () => {
+      const n = $('combo-name').value.trim(), targets = [...new Set($('combo-targets').value.split('\n').map(t => t.trim()).filter(Boolean))];
+      await action({ action: 'combo.save', name: n, targets }); if (!overview?.default) await action({ action: 'combo.default', name: n }); selectedCombo = n; await refreshWorkspace(); toast('Combo saved');
+    });
+  }
+  function modelPicker(provider, combo) {
+    const providers = Object.keys(overview?.providers || {});
+    if (!providers.length) { toast('Connect a provider first'); navigate('providers'); return; }
+    let models = [], generation = 0; const picked = new Set();
+    dialog('Pick models', 'Select models from one or more providers. New selections are appended in order.', `
+      <div class="toolbar"><select id="model-provider" aria-label="Provider">${providers.map(id => `<option ${id === provider ? 'selected' : ''}>${esc(id)}</option>`).join('')}</select><input id="model-search" type="search" aria-label="Search models" placeholder="Search models…"></div>
+      <div class="toolbar"><label><input type="checkbox" id="models-free"> Free only</label><span class="detail" id="model-count"></span></div>
+      <div class="model-list" id="model-list"></div>
+      <p class="detail" id="model-load-error" role="status"></p>
+      <label class="field" style="margin-top:16px">Add to combo<input id="model-combo" value="${esc(combo || overview?.default || 'free')}" list="combo-options" required><datalist id="combo-options">${Object.keys(overview?.combos || {}).map(n => `<option value="${esc(n)}">`).join('')}</datalist></label>`, 'Add models', async () => {
+      if (!picked.size) throw new Error('Select at least one model');
+      const name = $('model-combo').value.trim();
+      const targets = [...new Set([...(overview?.combos?.[name] || []), ...picked])];
+      await action({ action: 'combo.save', name, targets });
+      if (!overview?.default) await action({ action: 'combo.default', name });
+      selectedCombo = name; await refreshWorkspace(); toast('Models added to ' + name);
+    });
+    const version = dialogVersion;
+    function drawModels() {
+      const q = $('model-search').value.toLowerCase(), free = $('models-free').checked;
+      const visible = models.filter(m => m.id.toLowerCase().includes(q) && (!free || m.free));
+      $('model-count').textContent = `${visible.length} shown · ${picked.size} selected`;
+      $('model-list').innerHTML = visible.length ? visible.map(m => `<label class="model-option"><input type="checkbox" data-target="${esc(m.target)}" ${picked.has(m.target) ? 'checked' : ''}><span>${esc(m.id)}</span>${m.free ? '<span class="tag">free</span>' : ''}</label>`).join('') : '<div class="empty">No matching models.</div>';
+      $('model-list').querySelectorAll('input').forEach(c => c.onchange = () => { c.checked ? picked.add(c.dataset.target) : picked.delete(c.dataset.target); $('model-count').textContent = `${visible.length} shown · ${picked.size} selected`; });
+    }
+    async function loadModels() {
+      const current = ++generation; models = []; $('model-list').innerHTML = '<div class="skeleton"></div>'.repeat(6); $('model-load-error').textContent = '';
+      try { const v = await action({ action: 'models', provider: $('model-provider').value }); if (current !== generation || version !== dialogVersion || !$('model-provider')) return; models = v.models; drawModels(); }
+      catch (e) { if (current !== generation || version !== dialogVersion || !$('model-provider')) return; $('model-list').innerHTML = '<div class="empty">Model list unavailable.</div>'; $('model-load-error').textContent = e.message + ' You can also add known IDs in Combos → Edit targets.'; }
+    }
+    $('model-provider').onchange = loadModels; $('model-search').oninput = drawModels; $('models-free').onchange = drawModels; loadModels();
+  }
+  // ---- routed chat ----
+  function updateChatModels() {
+    const select = $('chat-model'), old = select.value;
+    const names = Object.keys(overview?.combos || {});
+    if (overview?.default && !names.includes(overview.default)) names.push(overview.default);
+    select.innerHTML = names.length ? names.map(n => `<option value="${esc(n)}">${esc(n)}${n === overview.default ? ' · default' : ''}</option>`).join('') : '<option value="">Create a combo first</option>';
+    select.value = names.includes(old) ? old : (overview?.default || names[0] || '');
+    select.disabled = chatBusy; $('chat-send').disabled = chatBusy || !names.length; $('chat-new').disabled = chatBusy;
+    renderChat();
+  }
+  function renderChat() {
+    const box = $('chat-history');
+    const fresh = chatMessages.length > (renderChat.n ?? 0); renderChat.n = chatMessages.length;
+    box.innerHTML = chatMessages.length ? chatMessages.map((m, i) => `<div class="message ${m.role}${fresh && i === chatMessages.length - 1 ? ' pop' : ''}"><small>${m.role === 'user' ? 'You' : 'Assistant'}</small>${esc(m.content)}</div>`).join('') : '<div class="empty-state"><h3>Take your combo for a spin</h3><p>Send a message and watch the request appear in Overview.</p></div>';
+    if (chatBusy) box.innerHTML += '<div class="message pop" role="status"><small>Assistant</small><span class="typing"><i></i><i></i><i></i><span>Routing your request…</span></span></div>';
+    box.scrollTop = box.scrollHeight;
+  }
+  function resetChat() { chatMessages = []; renderChat.n = 0; $('chat-error').textContent = ''; renderChat(); }
+  $('chat-new').onclick = resetChat; $('chat-model').onchange = resetChat;
+  $('chat-input').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('chat-form').requestSubmit(); } };
+  $('chat-form').onsubmit = async e => {
+    e.preventDefault(); if (chatBusy || !$('chat-model').value) return;
+    const input = $('chat-input'), content = input.value.trim(); if (!content) return;
+    const messages = [...chatMessages, { role: 'user', content }];
+    chatMessages = messages; chatBusy = true; input.value = ''; $('chat-error').textContent = ''; updateChatModels();
+    try { const v = await action({ action: 'chat', model: $('chat-model').value, messages }); chatMessages.push({ role: 'assistant', content: v.reply }); }
+    catch (error) { chatMessages = messages.slice(0, -1); input.value = content; $('chat-error').textContent = error.message; }
+    finally { chatBusy = false; updateChatModels(); poll(); input.focus(); }
+  };
+  // ---- connection recipes ----
+  function renderConnect() {
+    const picker = $('connect-model');
+    const selected = picker.value;
+    const models = [...new Set([overview?.default, ...Object.keys(overview?.combos || {}), ...Object.values(overview?.combos || {}).flat()].filter(Boolean))];
+    picker.innerHTML = models.length ? models.map(m => `<option value="${esc(m)}">${esc(m)}${m === overview?.default ? ' (default)' : ''}</option>`).join('') : '<option value="free">free — create a combo first</option>';
+    if (models.includes(selected)) picker.value = selected;
+    const model = picker.value;
+    const token = overview?.auth ? 'YOUR_TAKO_API_KEY' : 'tako';
+    const recipes = [
+      ['Claude Code', 'Run on your computer to connect Claude Code to this router.', `env -u ANTHROPIC_API_KEY ANTHROPIC_BASE_URL=${shellQuote(origin)} ANTHROPIC_AUTH_TOKEN=${shellQuote(token)} ANTHROPIC_MODEL=${shellQuote(model)} claude`],
+      ['OpenCode', 'Add this provider to opencode.json, then choose tako in /models.', JSON.stringify({ provider: { tako: { npm: '@ai-sdk/openai-compatible', name: 'tako', options: { baseURL: origin + '/v1', apiKey: token }, models: { [model]: { name: model + ' (tako)' } } } } }, null, 2)],
+      ['Aider', 'Launch Aider with your selected fallback combo.', `aider --openai-api-base ${shellQuote(origin + '/v1')} --openai-api-key ${shellQuote(token)} --model ${shellQuote('openai/' + model)}`],
+      ['Cursor, Continue & SDKs', 'Use these settings in any OpenAI-compatible client. Anthropic clients use the base URL without /v1.', `Base URL  ${origin}/v1\nAPI key   ${token}\nModel     ${model}`],
+      ['Test with curl', 'Send a request, then see which provider served it in Overview.', `curl ${shellQuote(origin + '/v1/chat/completions')} \\\n  -H 'Content-Type: application/json' \\\n  -H ${shellQuote('Authorization: Bearer ' + token)} \\\n  -d ${shellQuote(JSON.stringify({ model, messages: [{ role: 'user', content: 'Hi!' }] }))}`],
+    ];
+    $('connect-content').innerHTML = (overview?.auth ? '<div class="card" style="grid-column:1/-1">Router authentication is enabled. Replace <code>YOUR_TAKO_API_KEY</code> with a key from Access & keys.</div>' : '') + recipes.map(([title, desc, code], i) => `<article class="card"><h2>${title === 'Claude Code' ? logoTile('claudecode') : title === 'OpenCode' ? logoTile('opencode') : title.startsWith('Cursor') ? logoTile('cursor') : `<span class="tool">${ic('terminal')}</span>`}${esc(title)}<span class="act"><button class="btn" data-recipe="${i}">${ic("copy")}Copy</button></span></h2><p class="description">${esc(desc)}</p><pre>${esc(code)}</pre></article>`).join('');
+    document.querySelectorAll('[data-recipe]').forEach(b => b.onclick = () => copyText(recipes[Number(b.dataset.recipe)][2]));
+  }
+  function shellQuote(s) { return "'" + s.replace(/'/g, "'\\''") + "'"; }
+  $('connect-model').onchange = renderConnect;
+  $('connect-keys').onclick = () => navigate('access');
+  let security = null, securityLoading = false;
+  async function loadSecurity() {
+    if (securityLoading) return; securityLoading = true;
+    try {
+      security = await getJSON('/api/security');
+      $('key-error').textContent = '';
+      $('sign-out').hidden = !security.password_set;
+      $('security-note').textContent = security.password_set ? 'Password protected. Sessions expire after 12 hours. Changing the password signs out every browser.' : 'Local access is open. Set an admin password before sharing this router or exposing the panel.';
+      const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+      $('transport-note').textContent = location.protocol === 'https:' ? 'This connection uses HTTPS.' : local ? 'Local connection. Use an HTTPS reverse proxy when hosting online.' : 'This connection uses HTTP. Configure an HTTPS reverse proxy before sending passwords or API keys over the internet.';
+      $('key-count').textContent = `${security.keys.length} active`;
+      $('client-keys').innerHTML = security.keys.length ? security.keys.map(k => `<div class="key-row"><div class="key-info"><strong>${esc(k.name)}</strong><span class="detail">Created ${esc(new Date(k.created * 1000).toLocaleDateString(undefined, {year:'numeric',month:'short',day:'numeric'}))} · ${esc(k.prefix || 'Key hidden')}</span></div><div class="toolbar"><button class="btn" data-rename="${esc(k.id)}">Rename<span class="sr-only"> ${esc(k.name)}</span></button><button class="btn danger" data-revoke="${esc(k.id)}">Revoke<span class="sr-only"> ${esc(k.name)}</span></button></div></div>`).join('') : '<div class="empty-state"><h3>A key for every connection</h3><p>Create your first key for an editor, SDK, or another device.</p><button class="btn" id="first-key">Create your first key</button></div>';
+      if ($('first-key')) $('first-key').onclick = createKey;
+      document.querySelectorAll('[data-revoke]').forEach(b => b.onclick = () => {
+        const k = security.keys.find(k => k.id === b.dataset.revoke);
+        dialog(`Revoke “${k.name}”?`, `Apps using this key will lose access immediately.${security.keys.length === 1 ? ' This is your last managed key. Create a replacement first if you still need client access.' : ''} You can create a new key at any time.`, '', 'Revoke key', async () => {
+          await action({action: 'key.revoke', id: k.id});
+          if ($('key-result').dataset.id === k.id) { $('new-key').value = ''; $('key-result').hidden = true; }
+          await loadSecurity(); await refreshWorkspace(); toast('Key revoked');
+        });
+        $('dialog-submit').classList.add('danger');
+      });
+      document.querySelectorAll('[data-rename]').forEach(b => b.onclick = () => {
+        const k = security.keys.find(k => k.id === b.dataset.rename);
+        dialog('Rename API key', 'Choose a name that helps you recognize this app or device.', `<label class="field">Key name<input id="rename-key" required maxlength="100" value="${esc(k.name)}" autocomplete="off"></label>`, 'Save name', async () => {
+          await action({action: 'key.rename', id: k.id, name: $('rename-key').value}); await loadSecurity(); toast('Key renamed');
+        });
+      });
+    } catch (e) { $('key-error').textContent = e.message; }
+    finally { securityLoading = false; }
+  }
+  function createKey() {
+    if (!$('key-result').hidden) { $('new-key').focus(); toast('Save the current key before creating another.'); return; }
+    dialog('Create an API key', 'Use a separate key for each app or device, so you can revoke one without interrupting the others.', '<label class="field">Key name<input id="key-name" required maxlength="100" placeholder="e.g. Laptop · Claude Code" autocomplete="off"></label>', 'Create key', async () => {
+      const v = await action({action: 'key.create', name: $('key-name').value});
+      $('new-key').value = v.key; $('key-result').dataset.id = v.id; $('key-result').hidden = false;
+      await loadSecurity(); await refreshWorkspace();
+      requestAnimationFrame(() => $('new-key').focus());
+    });
+  }
+  $('create-key').onclick = createKey;
+  $('new-key').onclick = () => $('new-key').select();
+  $('copy-key').onclick = async () => {
+    if (await copyText($('new-key').value)) { $('copy-key').textContent = 'Copied'; setTimeout(() => $('copy-key').textContent = 'Copy key', 2000); }
+    else { $('new-key').focus(); $('new-key').select(); }
+  };
+  $('dismiss-key').onclick = () => { $('new-key').value = ''; $('key-result').hidden = true; $('create-key').focus(); };
+  $('sign-out').onclick = async () => {
+    const b = $('sign-out'); b.disabled = true;
+    try { await requestJSON('/api/logout', {method: 'POST', headers: {'x-tako': '1'}}); location.replace('/ui'); }
+    catch (e) { toast(e.message); b.disabled = false; }
+  };
+  loadSecurity();
+  // ---- bounded live logs ----
+  let logsLoading = false;
+  async function loadLogs() {
+    if (logsLoading) return; logsLoading = true;
+    try { logLines = (await getJSON('/api/logs')).lines; renderLogs(); }
+    catch (e) { $('log-content').textContent = 'Could not load logs. ' + e.message; }
+    finally { logsLoading = false; }
+  }
+  function visibleLogs() { const q = $('log-search').value.toLowerCase(); return logLines.filter(l => l.toLowerCase().includes(q)); }
+  function renderLogs() {
+    const box = $('log-content'), top = box.scrollTop;
+    const lines = visibleLogs(), q = $('log-search').value;
+    const prev = renderLogs.last || 0; renderLogs.last = logLines.length;
+    const hl = (t) => { const e = esc(t); if (!q) return e; const qq = esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); return e.replace(new RegExp(qq, 'gi'), m => `<mark>${m}</mark>`); };
+    const cls = (l) => /error|fail|panic|refused|denied/i.test(l) ? 'err' : /warn|cool|bench|retry|rate.?limit|timeout/i.test(l) ? 'warn' : /\b(ok|200|started|listening|ready)\b/i.test(l) ? 'ok' : '';
+    const freshFrom = prev && logLines.length > prev && !q ? lines.length - (logLines.length - prev) : Infinity;
+    box.innerHTML = lines.length ? lines.map((l, i) => `<span class="log-line ${cls(l)}${i >= freshFrom ? ' fresh' : ''}">${hl(l) || ' '}</span>`).join('') : '<span class="log-line">No matching log lines. Foreground router output is shown in its terminal.</span>';
+    box.scrollTop = $('log-follow').checked ? box.scrollHeight : top;
+  }
+  $('log-search').oninput = renderLogs; $('log-follow').onchange = renderLogs;
+  $('logs-copy').onclick = () => copyText(visibleLogs().join('\n'));
+  setInterval(() => { if (page === 'logs' && $('log-follow').checked && !document.hidden) loadLogs(); }, 3000);
+  getJSON('/api/catalog').then(v => { catalog = v; renderWorkspace(true); }).catch(() => toast('Provider catalog unavailable. You can still add a custom provider.'));
+  navigate(location.hash.slice(1));
+
+  $("request-search").oninput = () => renderFeed(status?.recent || []);
+  $("request-filter").onchange = () => renderFeed(status?.recent || []);
+  // ---- loop ----
+  pollOverview(); poll();
+  setInterval(poll, 1500);
+  setInterval(pollOverview, 5000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { poll(); pollOverview(); } });
+})();
+</script>
+</body>
+</html>
