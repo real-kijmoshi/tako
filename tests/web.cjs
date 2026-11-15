@@ -57,8 +57,20 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  click('#dismiss-key');assert.equal($('#new-key').value,'');
  click('[data-page="connect"]');assert.match($('#connect-content').textContent,/ANTHROPIC_BASE_URL/);
  assert.ok($('#connect-content').textContent.includes(base));
- click('#settings-export');assert.match($('#dialog-description').textContent,/provider API keys/);
+ const search=query=>{click('#cmdk-open');$('#cmdk-q').value=query;$('#cmdk-q').dispatchEvent(new w.Event('input',{bubbles:true}));};
+ search('move');assert.match($('#cmdk-list').textContent,/Move your setup/);
+ click('#cmdk-list .cmdk-item.on');assert.equal($('#cmdk').hidden,true);
+ assert.equal($('#page-connect').hidden,false);assert.equal(d.activeElement,$('#settings-export'));
+ for(const query of ['transfer','migrate','backup','restore']){
+  search(query);assert.ok(d.querySelectorAll('#cmdk-list .cmdk-item').length>0,query);
+  w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+ }
+ search('export settings');$('#cmdk-q').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+ assert.match($('#dialog-description').textContent,/provider API keys/);
  click('#dialog-cancel');assert.equal(downloaded,null);
+ let filePickerOpened=false;$('#settings-file').addEventListener('click',()=>{filePickerOpened=true;});
+ search('import settings');click('#cmdk-list .cmdk-item.on');
+ assert.equal(filePickerOpened,true);assert.equal($('#cmdk').hidden,true);
  click('#settings-export');$('#dialog-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  await wait(()=>downloaded!==null&&!$('#modal').open);
  assert.equal(downloadName,'tako-settings.json');

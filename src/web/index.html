@@ -1386,6 +1386,9 @@ button:disabled { cursor: wait; opacity: .6; }
     const items = [];
     document.querySelectorAll('.nav[data-page]').forEach((b) => items.push({ group: 'Pages', icon: b.querySelector('svg')?.outerHTML || '', label: b.textContent.replace(/\d+$/, '').trim(), hint: 'Go to', run: () => navigate(b.dataset.page) }));
     items.push(
+      { group: 'Actions', icon: ic('route'), label: 'Move your setup', hint: 'Import / export settings', keywords: 'transfer migrate migration backup restore', run: () => { navigate('connect'); $('settings-transfer').scrollIntoView({block: 'center'}); $('settings-export').focus(); } },
+      { group: 'Actions', icon: ic('copy'), label: 'Export settings', hint: 'Download your setup', keywords: 'move transfer migrate backup', run: () => { navigate('connect'); $('settings-export').click(); } },
+      { group: 'Actions', icon: ic('plus'), label: 'Import settings', hint: 'Move an existing setup here', keywords: 'transfer migrate migration restore backup', run: () => { navigate('connect'); $('settings-import').click(); } },
       { group: 'Actions', icon: ic('plus'), label: 'Add a provider', run: () => addProvider() },
       { group: 'Actions', icon: ic('route'), label: 'Create a combo', run: () => { navigate('routes'); editCombo(null); } },
       { group: 'Actions', icon: ic('chat'), label: 'Start a new conversation', run: () => { navigate('chat'); resetChat(); $('chat-input').focus(); } },
@@ -1401,7 +1404,7 @@ button:disabled { cursor: wait; opacity: .6; }
   }
   function cmdRender() {
     const q = $('cmdk-q').value.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean);
-    cmdShown = cmdItems.filter((it) => words.every((w) => (it.label + ' ' + it.group + ' ' + (it.hint || '')).toLowerCase().includes(w)));
+    cmdShown = cmdItems.filter((it) => words.every((w) => (it.label + ' ' + it.group + ' ' + (it.hint || '') + ' ' + (it.keywords || '')).toLowerCase().includes(w)));
     if (q && cmdAt === -1) { const best = cmdShown.findIndex((it) => it.label.toLowerCase().startsWith(q)); cmdAt = best < 0 ? 0 : best; }
     cmdAt = Math.max(0, Math.min(cmdAt, cmdShown.length - 1));
     let html = '', group = '';

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2 — 2026-11-15
+
+- Make settings transfer discoverable in command search: Move your setup, Export settings, and Import settings.
+- Match transfer, migrate, backup, and restore searches; route results to the panel, export confirmation, or file picker.
+
 ## 0.1.1 — 2026-11-15
 
 - Export and import portable settings from the CLI and web panel's Connect tab.

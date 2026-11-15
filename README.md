@@ -70,7 +70,8 @@ availability and terms depend on your accounts and providers.
 
 ## Move your setup to another machine
 
-Open **Connect → Move your setup** in the web panel. Export on the first machine,
+Open **Connect → Move your setup** in the web panel, or search for **move**,
+**export**, or **import** in the command menu (⌘K / Ctrl+K). Export on the first machine,
 then import the JSON file on the other. The panel previews the provider and combo
 counts before you confirm.
 
@@ -175,7 +176,7 @@ in a Git-connected Pages project. See its [deployment notes](landing/README.md).
 
 ## Releases and license
 
-Tag a checked commit with the package version (for example `v0.1.1`) and push the
+Tag a checked commit with the package version (for example `v0.1.2`) and push the
 tag. The release workflow verifies it, builds four platform binaries, and prepares
 a draft with SHA-256 checksums. Publish the draft after checking all assets.
 

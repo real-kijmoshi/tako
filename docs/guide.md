@@ -223,7 +223,7 @@ Everything lives in `~/.config/tako/` (config, log, pid). Set `TAKO_HOME` to use
 
 ## Releasing
 
-The package and lockfile use version `0.1.1`. Release notes are in
+The package and lockfile use version `0.1.2`. Release notes are in
 [RELEASE_NOTES.md](../RELEASE_NOTES.md), with changes in [CHANGELOG.md](../CHANGELOG.md).
 Run the local release checks (Rust, Python 3, Node.js 24, and npm are needed):
 
@@ -231,13 +231,13 @@ Run the local release checks (Rust, Python 3, Node.js 24, and npm are needed):
 ./scripts/check-release.sh
 ```
 
-In a Git checkout, commit the prepared files, tag the commit `v0.1.1`, and push
+In a Git checkout, commit the prepared files, tag the commit `v0.1.2`, and push
 the tag. The release workflow verifies that the tag matches the package version,
 runs format, lint, unit, integration, and installer checks, then builds all four
 platform binaries. A single packaging job creates `SHA256SUMS` and a **draft**
 GitHub release. Review the draft and publish it when ready. The installer and
 `tako update` select the latest published release.
 
-Development binaries labeled `0.2.0` need a manual replacement with `0.1.1`;
+Development binaries labeled `0.2.0` need a manual replacement with `0.1.2`;
 `tako update` intentionally does not downgrade. Preserve `TAKO_HOME` to keep
 providers, combos, passwords, and client keys.
