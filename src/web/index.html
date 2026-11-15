@@ -906,8 +906,21 @@ button:disabled { cursor: wait; opacity: .6; }
     try {
       const s = await getJSON("/status");
       if (s.now) skew = s.now - Date.now();
+      if (newBuild(s.ui)) return;
       status = s; setOnline(true); render(); renderSetup();
     } catch { setOnline(false); }
+  }
+  // The router was restarted on a different build: this page is stale, so load the new one.
+  // Waits while a dialog is open or a field holds unsaved text, so nothing in progress is lost.
+  let uiBuild = null;
+  function newBuild(id) {
+    if (!id) return false;
+    uiBuild ??= id;
+    if (id === uiBuild) return false;
+    const el = document.activeElement, typing = /^(INPUT|TEXTAREA|SELECT)$/.test(el?.tagName) && el.value;
+    if ($('modal').open || !$('cmdk').hidden || typing) return false;
+    location.reload();
+    return true;
   }
   async function pollOverview() {
     try { overview = await getJSON("/api/overview"); renderWarnings(); render(); renderWorkspace(); } catch {}

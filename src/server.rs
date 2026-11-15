@@ -335,7 +335,7 @@ impl App {
             .collect();
         let [total, first, rescued, failed] = m.requests;
         json!({
-            "version": VERSION, "pid": std::process::id(), "uptime": self.started.elapsed().as_secs(),
+            "version": VERSION, "ui": ui_build(), "pid": std::process::id(), "uptime": self.started.elapsed().as_secs(),
             "rss": rss(), "stats": stats, "cooling": cooling, "cooling_info": cooling_info,
             "minutes": minutes, "recent": m.recent,
             "inflight": m.inflight.values().collect::<Vec<_>>(), "now": crate::util::now_millis(),
@@ -474,6 +474,18 @@ async fn shutdown_signal() {
 // ---- routing ----------------------------------------------------------
 
 const UI_HTML: &str = include_str!("web/index.html");
+
+/// Fingerprint of the dashboard this build serves. Open tabs reload when it changes,
+/// so a restarted router never keeps talking to a page from an older build.
+fn ui_build() -> &'static str {
+    static ID: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    ID.get_or_init(|| {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        UI_HTML.hash(&mut h);
+        format!("{:016x}", h.finish())
+    })
+}
 
 async fn handle(app: Arc<App>, req: Request<Incoming>, loopback: bool) -> Response<Body> {
     let path = req.uri().path().to_string();

@@ -128,6 +128,8 @@ class Dashboard(unittest.TestCase):
         metrics = self.request('/status')[1]
         self.assertEqual(metrics['inflight'], [])
         self.assertGreater(metrics['now'], 0)
+        self.assertRegex(metrics['ui'], r'^[0-9a-f]{16}$')
+        self.assertEqual(self.request('/status')[1]['ui'], metrics['ui'])
         self.request('/api/action', {'action': 'provider.remove', 'provider': 'slowmock'})
 
     def test_dashboard_workflow(self):

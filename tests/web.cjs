@@ -100,7 +100,23 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  ld.querySelector('#show').click();assert.equal(ld.querySelector('#password').type,'text');
  ld.querySelector('#show').click();assert.equal(ld.querySelector('#password').type,'password');
  login.window.close();
- console.log('UI interaction checks passed: first run, access navigation, create/copy/rename/revoke/cancel, secret dismissal, remote recipes, login visibility controls.');
+ // A router restarted on a new build makes open dashboards reload, but never over unsaved text.
+ let uiBuild='build-a', reloaded=false; const reloadLogs=new VirtualConsole();
+ reloadLogs.on('jsdomError',e=>{if(/navigation/i.test(e.message))reloaded=true;});
+ const stale=new JSDOM(fs.readFileSync(root+'/src/web/index.html','utf8'),{url:base+'/ui',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:reloadLogs,
+  beforeParse(w){
+   w.fetch=async(url,options={})=>{const r=await fetch(new URL(url,base),{...options,headers:options.headers});if(String(url)!=='/status')return r;
+    const s=await r.json();s.ui=uiBuild;return new Response(JSON.stringify(s),{status:200,headers:{'content-type':'application/json'}});};
+   w.matchMedia=()=>({matches:false,addEventListener(){}});w.ResizeObserver=class{observe(){}disconnect(){}};
+   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+  }});
+ const s$=q=>stale.window.document.querySelector(q);
+ await wait(()=>/^v/.test(s$('#ver').textContent));
+ s$('#request-search').focus();s$('#request-search').value='unsaved';uiBuild='build-b';
+ await new Promise(r=>setTimeout(r,2000));assert.equal(reloaded,false,'reload waits while a field holds text');
+ s$('#request-search').value='';await wait(()=>reloaded);
+ stale.window.close();
+ console.log('UI interaction checks passed: first run, access navigation, create/copy/rename/revoke/cancel, secret dismissal, remote recipes, login visibility controls, reload on new build.');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{
  if(proc && proc.exitCode === null){const ended=new Promise(resolve=>proc.once('exit',resolve));proc.kill('SIGTERM');await ended;}
  if(fixture)fs.rmSync(fixture,{recursive:true,force:true});
