@@ -63,6 +63,56 @@ struct Metrics {
     kinds: BTreeMap<&'static str, u64>,
     /// per target: the most recent failure
     last_error: BTreeMap<String, Value>,
+    /// client requests still being answered, by request id
+    inflight: BTreeMap<u64, Value>,
+}
+
+/// Keeps a request on the live board until it is answered, fails, or the client goes away.
+struct Flight {
+    app: Arc<App>,
+    req: u64,
+}
+
+impl Flight {
+    fn new(app: Arc<App>, req: u64, model: &str) -> Self {
+        app.metrics.lock().unwrap().inflight.insert(
+            req,
+            json!({"req": req, "model": model, "t": crate::util::now_millis(), "phase": "waiting", "attempt": 0}),
+        );
+        Flight { app, req }
+    }
+
+    fn update(&self, f: impl FnOnce(&mut Value)) {
+        if let Some(e) = self.app.metrics.lock().unwrap().inflight.get_mut(&self.req) {
+            f(e);
+        }
+    }
+
+    /// A new attempt left for `target`.
+    fn attempt(&self, target: &str) {
+        self.update(|e| {
+            e["target"] = target.into();
+            e["attempt"] = (e["attempt"].as_u64().unwrap_or(0) + 1).into();
+            e["at"] = crate::util::now_millis().into();
+            e["phase"] = "waiting".into();
+        });
+    }
+
+    /// The provider answered and the body is now flowing to the client.
+    fn streaming(&self, first_ms: u64) {
+        self.update(|e| {
+            e["phase"] = "streaming".into();
+            e["first_ms"] = first_ms.into();
+        });
+    }
+}
+
+impl Drop for Flight {
+    fn drop(&mut self) {
+        if let Ok(mut m) = self.app.metrics.lock() {
+            m.inflight.remove(&self.req);
+        }
+    }
 }
 
 fn mtime(p: &Path) -> Option<SystemTime> {
@@ -288,6 +338,7 @@ impl App {
             "version": VERSION, "pid": std::process::id(), "uptime": self.started.elapsed().as_secs(),
             "rss": rss(), "stats": stats, "cooling": cooling, "cooling_info": cooling_info,
             "minutes": minutes, "recent": m.recent,
+            "inflight": m.inflight.values().collect::<Vec<_>>(), "now": crate::util::now_millis(),
             "requests": {"total": total, "first_try": first, "rescued": rescued, "failed": failed},
             "kinds": m.kinds, "last_error": m.last_error,
             "tokens": m.tokens, "token_targets": m.token_targets, "token_limits": m.token_limits,
@@ -771,6 +822,7 @@ async fn proxy(
         long: cfg.long_cooldown,
     };
     let req_id = app.seq.fetch_add(1, Ordering::Relaxed);
+    let flight = Flight::new(app.clone(), req_id, &model);
     let mut attempts: Vec<Attempt> = Vec::new();
     let mut benched: BTreeMap<String, Cool> = BTreeMap::new();
     let mut last: Option<(Wire, u16, String)> = None;
@@ -808,6 +860,7 @@ async fn proxy(
                     }
                 }
                 tried = true;
+                flight.attempt(&ck);
                 let began = Instant::now();
                 let up = upstream_body(&body, wire, p, &t.model);
                 let (status, headers, text) =
@@ -839,16 +892,25 @@ async fn proxy(
                                         }
                                         Got::Stream(head, rest) => {
                                             usage.push(&head);
+                                            flight.streaming(ms);
                                             let mut meter = StreamMeter {
                                                 app: app.clone(),
                                                 req: req_id,
                                                 tag: tag.clone(),
                                                 usage,
+                                                flight,
+                                                shown: Instant::now(),
                                             };
+                                            meter.show();
                                             let rest = rest
                                                 .map(move |chunk| {
                                                     if let Ok(bytes) = &chunk {
                                                         meter.usage.push(bytes);
+                                                        if meter.shown.elapsed()
+                                                            >= Duration::from_millis(120)
+                                                        {
+                                                            meter.show();
+                                                        }
                                                     }
                                                     chunk
                                                 })
@@ -1083,6 +1145,18 @@ struct StreamMeter {
     req: u64,
     tag: String,
     usage: crate::usage::Usage,
+    /// dropped after the tokens are recorded, so the board never shows a gap
+    flight: Flight,
+    shown: Instant,
+}
+
+impl StreamMeter {
+    /// Publish the running output-token count to the live board.
+    fn show(&mut self) {
+        let out = self.usage.live_output();
+        self.flight.update(|e| e["out"] = out.into());
+        self.shown = Instant::now();
+    }
 }
 
 impl Drop for StreamMeter {

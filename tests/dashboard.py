@@ -34,6 +34,18 @@ class Provider(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+        if body.get('stream') and body['messages'][-1]['content'] == 'slow':
+            # A reply that takes a while, so the live board can watch it stream.
+            time.sleep(.4)
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.end_headers()
+            for _ in range(8):
+                self.wfile.write(('data: ' + json.dumps({'choices': [{'delta': {'content': 'word ' * 20}}]}) + '\n\n').encode())
+                self.wfile.flush()
+                time.sleep(.2)
+            self.wfile.write(b'data: [DONE]\n\n')
+            return
         if body.get('stream'):
             events = [
                 {'choices': [{'delta': {'content': 'stream reply'}}]},
@@ -94,6 +106,29 @@ class Dashboard(unittest.TestCase):
         except HTTPError as e:
             with e:
                 return e.code, json.load(e)
+
+    def test_live_requests_show_while_in_flight(self):
+        self.assertEqual(self.request('/api/action', {'action': 'provider.add', 'provider': 'slowmock', 'base_url': f'http://127.0.0.1:{self.upstream.server_port}/v1', 'key': 'slow-secret'})[0], 200)
+        req = Request(self.base + '/v1/chat/completions', data=json.dumps({'model': 'slowmock/second', 'stream': True,
+            'messages': [{'role': 'user', 'content': 'slow'}]}).encode(),
+            headers={'Content-Type': 'application/json', 'Authorization': 'Bearer router-secret'})
+        done = threading.Event()
+        threading.Thread(target=lambda: (urlopen(req).read(), done.set()), daemon=True).start()
+        phases, outs = set(), []
+        while not done.wait(.05):
+            for f in self.request('/status')[1]['inflight']:
+                if f['model'] == 'slowmock/second':
+                    phases.add(f['phase'])
+                    self.assertEqual(f['target'], 'slowmock/second')
+                    self.assertEqual(f['attempt'], 1)
+                    outs.append(f.get('out', 0))
+        self.assertEqual(phases, {'waiting', 'streaming'})
+        self.assertGreater(max(outs), 0, 'output tokens should count up while streaming')
+        self.assertEqual(outs, sorted(outs))
+        metrics = self.request('/status')[1]
+        self.assertEqual(metrics['inflight'], [])
+        self.assertGreater(metrics['now'], 0)
+        self.request('/api/action', {'action': 'provider.remove', 'provider': 'slowmock'})
 
     def test_dashboard_workflow(self):
         self.assertEqual(self.request('/api/action', {'action': 'combo.delete', 'name': 'anything'}, {})[0], 403)

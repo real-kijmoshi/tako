@@ -228,6 +228,52 @@ h1 { font: 700 34px/1.1 var(--sign); letter-spacing: -.005em; margin: 0 0 6px; }
 .req.enter > * { animation: flap .5s cubic-bezier(.3, .6, .3, 1) both; transform-origin: 50% 0; }
 .req.enter > :nth-child(2) { animation-delay: .07s; } .req.enter > :nth-child(3) { animation-delay: .14s; } .req.enter > :nth-child(4) { animation-delay: .21s; }
 @keyframes flap { 0% { transform: perspective(300px) rotateX(-90deg); opacity: .2; } 60% { transform: perspective(300px) rotateX(12deg); opacity: 1; } 100% { transform: none; } }
+/* live rows: board on arrival, run with a ticking clock, then land in place */
+.req { position: relative; transition: background-color .5s; }
+.req .meter { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; overflow: hidden; pointer-events: none; }
+.req .meter i { display: block; height: 100%; width: 0; }
+.req.enter > .meter { animation: none; }
+.req.running, .req.diverting { background: linear-gradient(90deg, color-mix(in srgb, var(--flap) 9%, transparent), transparent 70%); }
+.req.streaming { background: linear-gradient(90deg, color-mix(in srgb, var(--good) 14%, transparent), transparent 70%); }
+.req.running .meter i, .req.diverting .meter i { width: 30%; background: linear-gradient(90deg, transparent, var(--flap), transparent); animation: shuttle 1.15s cubic-bezier(.45,0,.55,1) infinite alternate; }
+.req.streaming .meter i { background: linear-gradient(90deg, transparent, #7fdc95); box-shadow: 0 0 8px #7fdc95; transition: width .25s linear; }
+@keyframes shuttle { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+.req .live-el { color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; }
+.req .out { color: #7fdc95; font-weight: 600; font-variant-numeric: tabular-nums; }
+.req .dim { color: var(--flap-dim); font-style: italic; }
+.status.live { display: inline-flex; align-items: center; gap: 6px; color: var(--flap); }
+.status.live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: livedot 1s ease-in-out infinite; }
+.status.streaming { color: #7fdc95; }
+@keyframes livedot { 50% { opacity: .25; transform: scale(.6); } }
+.req.go .status { animation: stamp .4s cubic-bezier(.2,1.6,.4,1); }
+.req.land-ok { animation: land-ok 1.3s ease-out; }
+.req.land-div { animation: land-div 1.3s ease-out; }
+.req.land-fail { animation: land-fail 1.3s ease-out; }
+.req[class*="land-"] .status { animation: stamp .45s cubic-bezier(.2,1.6,.4,1); }
+.req.land-fail .status { animation: stamp .45s cubic-bezier(.2,1.6,.4,1), shake .4s .45s; }
+.req[class*="land-"] .meter i { animation: meter-done 1.1s ease-out forwards; }
+.req.land-ok .meter i { background: #7fdc95; } .req.land-div .meter i { background: var(--flap); } .req.land-fail .meter i { background: #ff8f88; }
+@keyframes land-ok { 0% { background-color: color-mix(in srgb, var(--good) 34%, transparent); } 100% { background-color: transparent; } }
+@keyframes land-div { 0% { background-color: color-mix(in srgb, var(--flap) 26%, transparent); } 100% { background-color: transparent; } }
+@keyframes land-fail { 0% { background-color: color-mix(in srgb, var(--critical) 34%, transparent); } 100% { background-color: transparent; } }
+@keyframes meter-done { 0% { width: 0; opacity: 1; } 65% { width: 100%; opacity: 1; } 100% { width: 100%; opacity: 0; } }
+@keyframes stamp { 0% { transform: scale(1.7); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.step.fresh { animation: step-in .5s cubic-bezier(.2,.8,.2,1); }
+@keyframes step-in { from { opacity: 0; transform: translateX(-8px); color: #ff8f88; } }
+.saved-pop { position: absolute; right: 18px; top: 4px; font: 700 11.5px var(--sign); color: var(--flap); letter-spacing: .05em; text-transform: uppercase; pointer-events: none; animation: pop-up 1.6s ease-out forwards; }
+@keyframes pop-up { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-16px); } }
+.live-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px 1px; border-radius: 999px; font: 700 11.5px var(--sign); letter-spacing: .05em; text-transform: uppercase; color: var(--flap); background: color-mix(in srgb, var(--flap) 15%, transparent); }
+.live-pill[hidden] { display: none; }
+.live-pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: ping 1.2s ease-out infinite; }
+.live-pill b { font-variant-numeric: tabular-nums; display: inline-block; }
+.live-pill b.bump { animation: stamp .35s cubic-bezier(.2,1.6,.4,1); }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--flap) 70%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
+#netmap .train-live.streaming .train { fill: #7fdc95; }
+#netmap .train-live.streaming .train-glow { fill: var(--good); opacity: .4; transform-box: fill-box; transform-origin: center; animation: nm-pulse 1s ease-in-out infinite; }
+#netmap .train-live.waiting .train-glow { transform-box: fill-box; transform-origin: center; animation: nm-pulse 1.4s ease-in-out infinite; }
+#netmap .pkt { fill: #7fdc95; }
+@keyframes nm-pulse { 50% { transform: scale(1.7); opacity: .1; } }
 .board-empty { padding: 30px 18px 34px; color: var(--flap-dim); font-size: 13px; }
 .board-empty b { display: block; font: 700 18px var(--sign); color: var(--flap); margin-bottom: 6px; letter-spacing: .03em; }
 .board-empty b::after { content: "_"; animation: beat 1s steps(1) infinite; }
@@ -657,7 +703,7 @@ button:disabled { cursor: wait; opacity: .6; }
 
   <section class="grid two">
     <div class="card board-card">
-      <h2><i data-ic="radio"></i>Live requests <span class="count">newest first</span></h2>
+      <h2><i data-ic="radio"></i>Live requests <span class="count">newest first</span><span class="live-pill" id="live-pill" hidden aria-live="polite"><i></i><b id="live-n">0</b> in flight</span></h2>
       <div class="toolbar"><input id="request-search" type="search" placeholder="Filter model or target…" aria-label="Search requests"><select id="request-filter" aria-label="Filter request outcome"><option value="all">All requests</option><option value="rescued">Saved by fallback</option><option value="failed">Failed requests</option></select></div>
       <div class="board-head" aria-hidden="true"><span>Time</span><span>Combo</span><span>Served by</span><span>Status</span></div>
       <div class="feed" id="feed"></div>
@@ -859,6 +905,7 @@ button:disabled { cursor: wait; opacity: .6; }
   async function poll() {
     try {
       const s = await getJSON("/status");
+      if (s.now) skew = s.now - Date.now();
       status = s; setOnline(true); render(); renderSetup();
     } catch { setOnline(false); }
   }
@@ -1030,7 +1077,8 @@ button:disabled { cursor: wait; opacity: .6; }
       stn.cd.dataset.until = cool ? cool[1].until : ""; stn.cd.dataset.total = cool ? cool[1].total : "";
     }
     nmTickCooldowns();
-    // enqueue a train for every request we haven't drawn yet
+    // requests still on the line get a live train; finished ones we never saw get a replay
+    nmLive(s);
     const groups = [];
     for (const e of s.recent || []) { const g = groups[groups.length - 1]; if (g && e.req != null && g.req === e.req) g.items.push(e); else groups.push({ req: e.req ?? `${e.t}-${groups.length}`, items: [e] }); }
     for (const g of groups) {
@@ -1080,6 +1128,70 @@ button:disabled { cursor: wait; opacity: .6; }
       label.animate([{ transform: "translateY(4px)", opacity: 0 }, { transform: "translateY(0)", opacity: 1, offset: .15 }, { transform: "translateY(-14px)", opacity: 0 }], { duration: 1700, easing: "ease-out" }).onfinish = () => label.remove();
     }
   }
+  // ---- live trains: leave on arrival, wait at the station, glow while the answer streams back ----
+  nm.live = new Map();
+  function nmLive(s) {
+    const fl = new Map((s.inflight || []).map((f) => [String(f.req), f]));
+    const moving = nm.primed && !document.hidden && !calm();
+    for (const [k, f] of fl) {
+      if (nm.live.has(k) || nm.seen.has(f.req)) continue;
+      nm.seen.add(f.req);
+      if (moving && nm.live.size < 12) nm.live.set(k, { k, req: f.req, want: f, tag: null, dot: null, busy: false });
+    }
+    for (const tr of nm.live.values()) { tr.want = fl.get(tr.k) || null; nmDrive(tr); }
+  }
+  const attemptsOf = (req) => (status?.recent || []).filter((e) => e.req === req);
+  async function nmDrive(tr) {
+    if (tr.busy) return;
+    tr.busy = true;
+    try {
+      if (!tr.dot) {
+        if (!nm.layer?.isConnected) { nm.live.delete(tr.k); return; }
+        tr.dot = mk("g", { class: "train-live waiting" }, nm.layer);
+        mk("circle", { r: 9, class: "train-glow" }, tr.dot); mk("circle", { r: 4.5, class: "train" }, tr.dot);
+        await ride(tr.dot, nm.feeder, 380);
+        nm.hub.ring.animate?.([{ stroke: "var(--flap)", strokeWidth: 6 }, { stroke: "var(--blue)", strokeWidth: 4 }], { duration: 500, easing: "ease-out" });
+      }
+      for (;;) {
+        if (!tr.dot.isConnected) { nm.live.delete(tr.k); return; }
+        const w = tr.want, want = w?.target ? baseTag(w.target) : tr.tag;
+        if (want && want !== tr.tag && nm.tracks[want]) {
+          if (tr.tag && nm.tracks[tr.tag]) {
+            const st = nm.stations[tr.tag], miss = attemptsOf(tr.req).reverse().find((e) => e.kind && baseTag(e.target) === tr.tag);
+            signal(st.x, st.y, false, miss ? `${miss.status || "ERR"} ${miss.label || ""}`.trim() : "diverted");
+            await ride(tr.dot, nm.tracks[tr.tag], 420, true);
+          }
+          await ride(tr.dot, nm.tracks[want], 620);
+          tr.tag = want;
+          continue;
+        }
+        if (w) { tr.dot.setAttribute("class", `train-live ${w.phase === "streaming" ? "streaming" : "waiting"}`); return; }
+        // the request is done: signal how it ended where the train stands, then fade out
+        const items = attemptsOf(tr.req), last = items[items.length - 1], st = tr.tag && nm.stations[tr.tag];
+        if (st && last) {
+          const ok = !last.kind, tok = last.tokens?.output_tokens;
+          signal(st.x, st.y, ok, ok ? (tok ? `${tok.toLocaleString()} tok` : fmtMs(last.ms)) : `${last.status || "ERR"} ${last.label || ""}`.trim());
+        }
+        tr.dot.setAttribute("class", "train-live");
+        const fade = tr.dot.animate?.([{ opacity: 1 }, { opacity: 0 }], { duration: 300 });
+        const dot = tr.dot; if (fade) fade.onfinish = () => dot.remove(); else dot.remove();
+        nm.live.delete(tr.k);
+        return;
+      }
+    } finally { tr.busy = false; }
+  }
+  // while a train streams, little packets run back along its line to your apps
+  setInterval(() => {
+    if (document.hidden || calm() || !nm.layer?.isConnected) return;
+    for (const tr of nm.live.values()) {
+      if (tr.busy || tr.want?.phase !== "streaming" || !nm.tracks[tr.tag] || nm.layer.childElementCount > 80) continue;
+      const out = tr.want.out || 0;
+      if (out === tr.lastOut && (tr.idle = (tr.idle || 0) + 1) % 3) continue;
+      tr.lastOut = out;
+      const pkt = mk("circle", { r: 2.4, class: "pkt" }, nm.layer), track = nm.tracks[tr.tag];
+      ride(pkt, track, 520, true).then(() => pkt.isConnected && ride(pkt, nm.feeder, 340, true)).then(() => pkt.remove());
+    }
+  }, 180);
   async function runTrain(items) {
     if (!nm.layer || !nm.layer.isConnected) return;
     const steps = items.filter((e) => nm.tracks[baseTag(e.target)]);
@@ -1181,45 +1293,156 @@ button:disabled { cursor: wait; opacity: .6; }
   }
   $("clear-all").onclick = () => clearCooldown(null);
 
-  // ---- live feed ----
-  function renderFeed(recent) {
-    const groups = [];
+  // ---- live feed: rows board the moment a request arrives, run live, then land in place ----
+  let skew = 0;                  // server clock minus ours, ms
+  const feedRows = new Map();    // req -> row state
+  const reqStart = new Map();    // req -> departure ms, so a row keeps its time when it lands
+  const doneDur = new Map();     // req -> total ms we watched it run
+  const LIVE = { running: 1, diverting: 1, streaming: 1 };
+  const fmtLive = (ms) => { const s = Math.max(0, ms) / 1000; return s < 10 ? `${s.toFixed(1)}s` : s < 60 ? `${Math.floor(s)}s` : `${Math.floor(s / 60)}m ${String(Math.floor(s % 60)).padStart(2, "0")}s`; };
+  const tokTxt = (t) => t ? ` · ${t.estimated_requests ? "~" : ""}${t.total_tokens.toLocaleString()} tokens` : "";
+  // finished attempts grouped per request, plus whatever is still on the line
+  function feedGroupsOf(recent) {
+    const groups = [], byReq = new Map();
     for (const e of recent) {
-      const g = groups[groups.length - 1];
-      if (g && e.req != null && g.req === e.req) g.items.push(e); else groups.push({ req: e.req ?? `${e.t}-${groups.length}`, items: [e] });
+      const prev = groups[groups.length - 1], g = e.req != null ? byReq.get(String(e.req)) : prev && prev.req === e.req ? prev : null;
+      if (g) g.items.push(e);
+      else { const ng = { req: e.req ?? `${e.t}-${groups.length}`, items: [e] }; groups.push(ng); byReq.set(String(ng.req), ng); }
     }
-    groups.reverse();
-    const box = $("feed");
-    if (!groups.length) { box.innerHTML = box._html = `<div class="board-empty"><b>No requests yet</b>Point a client at the endpoint above, or run <code>tako claude</code>. Each request shows up here as it arrives.</div>`; return; }
-    const query = $("request-search").value.toLowerCase(), filter = $("request-filter").value;
-    const filtered = groups.filter(g => {
-      const last = g.items[g.items.length - 1];
-      return g.items.some(e => (e.model + " " + e.target).toLowerCase().includes(query)) &&
-        (filter === "all" || (filter === "failed" ? !!last.kind : !last.kind && g.items.length > 1));
+    for (const f of status?.inflight || []) {
+      const g = byReq.get(String(f.req));
+      if (g) g.fl = f; else { const ng = { req: f.req, items: [], fl: f }; groups.push(ng); byReq.set(String(f.req), ng); }
+    }
+    const order = (g) => typeof g.req === "number" ? g.req : -1;
+    return groups.reverse().sort((a, b) => order(b) - order(a));
+  }
+  function feedState(g) {
+    if (g.fl) return g.fl.phase === "streaming" ? "streaming" : g.items.some((e) => e.kind) ? "diverting" : "running";
+    const last = g.items[g.items.length - 1];
+    return last.kind ? "failed" : g.items.length > 1 ? "diverted" : "served";
+  }
+  function feedRow(g, state, start, dur) {
+    const items = g.items, fl = g.fl, model = fl?.model || items[0].model;
+    const steps = items.map((e) => {
+      const okStep = !e.kind;
+      return `<span class="step ${okStep ? "okk" : "failed"}" title="${esc(e.target)} · ${esc(e.label || "ok")} · ${fmtMs(e.ms)}">` +
+        `<span class="st ${okStep ? "" : "s-" + (SEV[e.kind] || "neutral")}">${e.status || "ERR"}</span>${esc(e.target)}` +
+        `<span style="color:var(--muted)">${okStep ? fmtMs(e.ms) : esc(e.label)}${tokTxt(e.tokens)}</span></span>`;
     });
+    const lastOk = [...items].reverse().find((e) => !e.kind), last = items[items.length - 1];
+    let served, badge, showSteps;
+    if (state === "streaming") {
+      const tgt = fl.target || lastOk?.target || "";
+      served = `${plogo(provOf(tgt), "sm")}<span>${esc(tgt)}</span><small><b class="live-el" data-el></b> · ↓ <b class="out" data-out>0</b> tok · 1st byte ${fmtMs(fl.first_ms ?? lastOk?.ms ?? 0)}</small>`;
+      badge = `<span class="status live streaming">Streaming</span>`;
+      showSteps = items.some((e) => e.kind);
+    } else if (LIVE[state]) {
+      served = fl.target ? `${plogo(provOf(fl.target), "sm")}<span>${esc(fl.target)}</span><small><b class="live-el" data-el></b> · ${fl.attempt > 1 ? `try ${fl.attempt} · ` : ""}awaiting reply</small>`
+        : `<span class="dim">picking a route…</span><small><b class="live-el" data-el></b></small>`;
+      badge = `<span class="status live">${state === "diverting" ? "Diverting" : "En route"}</span>`;
+      showSteps = items.length > 0;
+    } else {
+      const ok = state !== "failed", total = dur && dur > (last.ms || 0) + 400 ? ` · ${fmtLive(dur)} total` : "";
+      served = ok ? `${plogo(provOf(last.target), "sm")}<span>${esc(last.target)}</span><small>${fmtMs(last.ms)}${total}${last.tokens ? ` · ${last.tokens.estimated_requests ? "~" : ""}${last.tokens.total_tokens.toLocaleString()} tok` : ""}</small>` : `<span style="color:#ff8f88">no target answered</span>`;
+      badge = state === "diverted" ? `<span class="status diverted" title="served after ${items.length - 1} fallback${items.length > 2 ? "s" : ""}">Diverted</span>` : ok ? `<span class="status">Served</span>` : `<span class="status failed">Failed</span>`;
+      showSteps = state !== "served";
+    }
+    return `<span class="time">${clock(start / 1000)}</span><span class="route" title="${esc(model)}">${esc(model)}</span><div class="via"><div class="served">${served}</div>${showSteps && steps.length ? `<div class="steps">${steps.join("")}</div>` : ""}</div>${badge}<span class="meter" aria-hidden="true"><i></i></span>`;
+  }
+  function feedEnter(el) {
+    if (calm()) return;
+    el.classList.add("enter");
+    el.querySelectorAll(".route, .status").forEach(scramble);
+    const h = el.offsetHeight;
+    if (h && el.animate) {
+      el.style.overflow = "hidden";
+      el.animate([{ height: "0px", paddingTop: "0px", paddingBottom: "0px", opacity: 0 }, { height: h + "px", paddingTop: "9px", paddingBottom: "9px", opacity: 1 }], { duration: 420, easing: "cubic-bezier(.2,.8,.2,1)" }).onfinish = () => el.style.overflow = "";
+    }
+    setTimeout(() => el.classList.remove("enter"), 1200);
+  }
+  function feedLand(el, state) {
+    const cls = "land-" + (state === "served" ? "ok" : state === "diverted" ? "div" : "fail");
+    el.classList.remove("land-ok", "land-div", "land-fail"); void el.offsetWidth; el.classList.add(cls);
+    setTimeout(() => el.classList.remove(cls), 1500);
+    if (state === "diverted") { const pop = document.createElement("span"); pop.className = "saved-pop"; pop.textContent = "saved by fallback"; el.appendChild(pop); setTimeout(() => pop.remove(), 1700); }
+  }
+  function renderFeed(recent) {
+    const groups = feedGroupsOf(recent), box = $("feed");
+    const liveN = (status?.inflight || []).length, pill = $("live-pill"), num = $("live-n");
+    pill.hidden = !liveN;
+    if (num.textContent !== String(liveN)) { num.textContent = liveN; num.classList.remove("bump"); void num.offsetWidth; num.classList.add("bump"); }
     feedGroups.clear();
-    const feedHtml = filtered.length ? filtered.slice(0, 40).map((g) => {
-      const last = g.items[g.items.length - 1], ok = !last.kind;
-      const fallbacks = g.items.length - 1;
-      const steps = g.items.map((e, i) => {
-        const okStep = !e.kind;
-        const code = e.status || "ERR";
-        return `<span class="step ${okStep ? "okk" : "failed"}" title="${esc(e.target)} · ${esc(e.label || "ok")} · ${fmtMs(e.ms)}">` +
-          `<span class="st ${okStep ? "" : "s-" + (SEV[e.kind] || "neutral")}">${code}</span>${esc(e.target)}` +
-          `<span style="color:var(--muted)">${okStep ? fmtMs(e.ms) : esc(e.label)}${e.tokens ? ` · ${e.tokens.estimated_requests ? "~" : ""}${e.tokens.total_tokens.toLocaleString()} tokens` : ""}</span></span>`;
-      }).join("");
-      const isNew = !firstFeed && !seenReqs.has(g.req);
-      const lastStep = g.items[g.items.length - 1];
-      const status = ok ? (fallbacks ? `<span class="status diverted" data-flap title="served after ${fallbacks} fallback${fallbacks > 1 ? "s" : ""}">Diverted</span>` : `<span class="status" data-flap>Served</span>`) : `<span class="status failed" data-flap>Failed</span>`;
-      const served = ok ? `${plogo(provOf(lastStep.target), "sm")}<span>${esc(lastStep.target)}</span><small>${fmtMs(lastStep.ms)}${lastStep.tokens ? ` · ${lastStep.tokens.estimated_requests ? "~" : ""}${lastStep.tokens.total_tokens.toLocaleString()} tokens` : ""}</small>` : `<span style="color:#ff8f88">no target answered</span>`;
-      feedGroups.set(String(g.req), g.items);
-      return `<div class="req${isNew ? " enter" : ""}" data-req="${esc(String(g.req))}" tabindex="0" role="button" aria-label="Inspect request ${esc(g.items[0].model)} at ${clock(g.items[0].t)}"><span class="time">${clock(g.items[0].t)}</span><span class="route" data-flap title="${esc(g.items[0].model)}">${esc(g.items[0].model)}</span><div class="via"><div class="served">${served}</div>${fallbacks || !ok ? `<div class="steps">${steps}</div>` : ""}</div>${status}</div>`;
-    }).join("") : `<div class="empty">No requests match your filters.</div>`;
-    if (box._html !== feedHtml) { box.innerHTML = box._html = feedHtml; box.querySelectorAll(".req.enter [data-flap]").forEach(scramble); }
+    if (!groups.length) {
+      if (!box.querySelector(".board-empty")) box.innerHTML = `<div class="board-empty"><b>No requests yet</b>Point a client at the endpoint above, or run <code>tako claude</code>. Each request shows up here the moment it arrives.</div>`;
+      feedRows.clear(); firstFeed = false; return;
+    }
+    const query = $("request-search").value.toLowerCase(), filter = $("request-filter").value;
+    const filtered = groups.filter((g) => {
+      const st = feedState(g), text = [g.fl?.model, g.fl?.target, ...g.items.map((e) => e.model + " " + e.target)].join(" ").toLowerCase();
+      return text.includes(query) && (filter === "all" || (filter === "failed" ? st === "failed" : st === "diverted" || st === "diverting"));
+    }).slice(0, 40);
+    box.querySelectorAll(":scope > :not(.req)").forEach((n) => n.remove());
+    const now = Date.now() + skew, keep = new Set();
+    filtered.forEach((g, i) => {
+      const key = String(g.req), state = feedState(g);
+      if (!reqStart.has(key)) reqStart.set(key, g.fl ? g.fl.t : g.items[0].t * 1000 - (g.items[0].ms || 0));
+      const start = reqStart.get(key);
+      let r = feedRows.get(key);
+      const fresh = !r;
+      if (r && LIVE[r.state] && !LIVE[state]) doneDur.set(key, now - start);
+      if (fresh) {
+        const el = document.createElement("div");
+        el.className = "req"; el.dataset.req = key; el.tabIndex = 0; el.setAttribute("role", "button");
+        r = { el, html: "", state: "", steps: 0, out: 0, outShown: 0 };
+        feedRows.set(key, r);
+      }
+      const el = r.el, html = feedRow(g, state, start, doneDur.get(key));
+      el.setAttribute("aria-label", `Inspect request ${g.fl?.model || g.items[0].model} at ${clock(start / 1000)}`);
+      if (r.html !== html) {
+        el.innerHTML = html; r.html = html;
+        const steps = el.querySelectorAll(".step");
+        if (!fresh) steps.forEach((n, j) => { if (j >= r.steps) n.classList.add("fresh"); });
+        r.steps = steps.length;
+        r.elEl = el.querySelector("[data-el]"); r.outEl = el.querySelector("[data-out]"); r.meter = el.querySelector(".meter i");
+        if (!fresh && r.state !== state) el.querySelectorAll(".status").forEach(scramble);
+      }
+      if (r.state !== state) {
+        if (r.state) el.classList.remove(r.state);
+        el.classList.add(state);
+        if (!calm() && LIVE[r.state] && !LIVE[state]) feedLand(el, state);
+        else if (!calm() && r.state && state === "streaming") { el.classList.remove("go"); void el.offsetWidth; el.classList.add("go"); setTimeout(() => el.classList.remove("go"), 500); }
+      }
+      r.state = state; r.start = start; r.live = !!LIVE[state];
+      r.out = g.fl?.out || 0; if (!r.live) r.outShown = 0;
+      keep.add(key);
+      if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
+      if (fresh && !firstFeed && !seenReqs.has(g.req)) feedEnter(el);
+      if (g.items.length) feedGroups.set(key, g.items);
+    });
+    for (const [k, r] of feedRows) if (!keep.has(k)) { r.el.remove(); feedRows.delete(k); }
+    if (!filtered.length) box.insertAdjacentHTML("beforeend", `<div class="empty">No requests match your filters.</div>`);
     groups.forEach((g) => seenReqs.add(g.req));
     while (seenReqs.size > 1000) seenReqs.delete(seenReqs.values().next().value);
+    for (const m of [reqStart, doneDur]) while (m.size > 400) m.delete(m.keys().next().value);
     firstFeed = false;
   }
+  // between polls, live rows keep counting: elapsed time, tokens rolling up, the stream meter filling
+  function feedTick() {
+    if (!document.hidden) {
+      const now = Date.now() + skew;
+      for (const r of feedRows.values()) {
+        if (!r.live) continue;
+        if (r.elEl) r.elEl.textContent = fmtLive(now - r.start);
+        if (r.outEl) {
+          r.outShown += (r.out - r.outShown) * .16; if (Math.abs(r.out - r.outShown) < .5) r.outShown = r.out;
+          r.outEl.textContent = Math.round(r.outShown).toLocaleString();
+        }
+        if (r.state === "streaming" && r.meter) r.meter.style.width = `${Math.min(97, 6 + 91 * (1 - Math.exp(-(now - r.start) / 9000)))}%`;
+      }
+    }
+    requestAnimationFrame(feedTick);
+  }
+  requestAnimationFrame(feedTick);
 
   // ---- combos ----
   function targetState(tag) {
@@ -1240,12 +1463,13 @@ button:disabled { cursor: wait; opacity: .6; }
     const names = Object.keys(combos);
     if (!names.length) { box.innerHTML = `<div class="empty">No combos yet. Open Providers to connect an API, then pick models for a combo.</div>`; return; }
     const lastOk = [...(status?.recent || [])].reverse().find((e) => !e.kind);
-    const liveTag = lastOk && Date.now() / 1000 - lastOk.t < 8 ? lastOk.target.replace(/ \(key \d+\)$/, "") : null;
+    const liveTags = new Set((status?.inflight || []).filter((f) => f.target).map((f) => baseTag(f.target)));
+    if (lastOk && Date.now() / 1000 - lastOk.t < 8) liveTags.add(baseTag(lastOk.target));
     const html = names.map((n) => {
       const isDef = overview.default === n;
       const nodes = combos[n].map((t, i) => {
         const st = targetState(t);
-        return `<span class="node ${st.cls}${t === liveTag ? " live" : ""}" title="${esc(t)}"><span class="nd"></span><span class="lbl">${plogo(provOf(t), "sm")}<span>${esc(t.slice(provOf(t).length + 1) || t)}</span></span>${st.why ? `<span class="why">${esc(st.why)}</span>` : ""}</span>`;
+        return `<span class="node ${st.cls}${liveTags.has(t) ? " live" : ""}" title="${esc(t)}"><span class="nd"></span><span class="lbl">${plogo(provOf(t), "sm")}<span>${esc(t.slice(provOf(t).length + 1) || t)}</span></span>${st.why ? `<span class="why">${esc(st.why)}</span>` : ""}</span>`;
       }).join("");
       return `<div class="combo"><div class="combo-name">${esc(n)}${isDef ? `<span class="tag">default</span>` : ""}</div><div class="chain">${nodes}</div></div>`;
     }).join("");
@@ -1764,10 +1988,18 @@ button:disabled { cursor: wait; opacity: .6; }
   $("request-search").oninput = () => renderFeed(status?.recent || []);
   $("request-filter").onchange = () => renderFeed(status?.recent || []);
   // ---- loop ----
-  pollOverview(); poll();
-  setInterval(poll, 1500);
+  // poll fast while requests are on the move, relax when the line is quiet
+  let pollTimer = null;
+  async function pollLoop() {
+    clearTimeout(pollTimer);
+    await poll();
+    const recent = status?.recent || [], last = recent[recent.length - 1];
+    const busy = (status?.inflight || []).length || (last && (Date.now() + skew) / 1000 - last.t < 15);
+    pollTimer = setTimeout(pollLoop, document.hidden ? 5000 : busy ? 400 : 1500);
+  }
+  pollOverview(); pollLoop();
   setInterval(pollOverview, 5000);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) { poll(); pollOverview(); } });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { pollLoop(); pollOverview(); } });
 })();
 </script>
 </body>

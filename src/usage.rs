@@ -114,6 +114,11 @@ impl Usage {
         self.parser = parser;
     }
 
+    /// Output tokens generated so far: reported, or estimated from the text streamed.
+    pub fn live_output(&self) -> u64 {
+        self.output.unwrap_or(estimate(self.output_bytes))
+    }
+
     pub fn finish(&mut self) -> Tokens {
         let mut parser = std::mem::take(&mut self.parser);
         parser.flush(&mut |_, data| {
