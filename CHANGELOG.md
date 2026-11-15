@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3 — 2026-11-15
+
+- Show requests on the dashboard as soon as they arrive, including in-flight progress.
+- Reload open dashboards when a restarted router serves an updated UI, waiting while a dialog is open or a field holds text.
+- Reorganize Connect into tool selection, route selection, and focused client settings with copyable recipes.
+- Guide users to create a combo before copying connection settings.
+- Show estimated tokens remaining from the latest provider report without adding potentially shared quotas.
+
 ## 0.1.2 — 2026-11-15
 
 - Make settings transfer discoverable in command search: Move your setup, Export settings, and Import settings.

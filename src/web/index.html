@@ -127,7 +127,7 @@ h1 { font: 700 34px/1.1 var(--sign); letter-spacing: -.005em; margin: 0 0 6px; }
 .card > .description { margin-bottom: 12px; font-size: 13px; }
 
 /* ---------- stats strip ---------- */
-.token-kpis.kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.token-kpis.kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; margin-bottom: 16px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
 .kpi { position: relative; padding: 14px 18px 16px; border-left: 1px solid var(--rule); min-width: 0; overflow: hidden; }
 .kpi:first-child { border-left: 0; }
@@ -616,6 +616,70 @@ button:disabled { cursor: wait; opacity: .6; }
   .secret-box .toolbar .btn { flex: 1; }
   .session-logout { min-height: 40px; }
 }
+
+/* Focused connection workspace */
+.wrap { max-width: 1560px; }
+header { min-height: 72px; flex-wrap: nowrap; }
+.session-logout { margin-left: 0; font-size: 12px; }
+.page-heading { margin: 36px 0 28px; }
+h1 { font-family: var(--body); font-size: 30px; letter-spacing: -.035em; line-height: 1.2; }
+.connect-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 32px; align-items: start; }
+.connect-layout .section-label { margin: 0 0 16px; font: 600 11px var(--body); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.connect-tools { display: grid; gap: 6px; }
+.connect-tool { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 13px 12px; border: 1px solid transparent; border-radius: 9px; background: transparent; cursor: pointer; }
+.connect-tool:hover { background: var(--surface); }
+.connect-tool.selected { background: var(--surface); border-color: var(--blue); box-shadow: 0 0 0 1px color-mix(in srgb, var(--blue) 12%, transparent); }
+.connect-tool .plogo, .connect-tool .tool { width: 30px; height: 30px; border-radius: 7px; }
+.connect-tool strong { display: block; font-size: 13px; font-weight: 600; }
+.connect-tool small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+.tool-arrow { margin-left: auto; color: var(--muted); font-size: 20px; }
+.connect-tool.selected .tool-arrow { color: var(--blue); }
+.connection-addresses { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--rule); }
+.connection-addresses .endpoint { display: grid; gap: 8px; }
+.connection-addresses .copy { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 5px; padding: 10px; text-align: left; background: transparent; font-size: 10px; }
+.connection-addresses .copy b { font: 500 11px var(--body); }
+.connection-addresses .copy span { grid-row: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.connection-addresses .copy .ci { grid-column: 2; grid-row: 1 / 3; }
+.connection-addresses .detail { font-size: 11px; line-height: 1.6; }
+.connect-main { min-width: 0; }
+.connection-controls { display: block; padding: 22px 24px 16px; margin-bottom: 16px; border-radius: 10px; }
+.connection-controls .field { max-width: 440px; font-size: 12px; }
+.connection-controls select { min-height: 40px; margin-top: 3px; border-radius: 6px; }
+.connection-controls .detail { font-size: 12px; margin: 10px 0 0; }
+.connect-notice { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-top: 12px; font-size: 12px; color: var(--text-2); }
+.connect-notice .btn { flex: none; font-size: 12px; }
+.recipe-panel { border-radius: 10px; padding: 24px; }
+.recipe-panel h2 { font: 600 20px var(--body); letter-spacing: -.02em; margin-bottom: 10px; gap: 10px; }
+.recipe-panel > .description { font-size: 13px; line-height: 1.7; }
+.auth-hint { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 0; color: var(--text-2); font-size: 12px; }
+.auth-hint > .ic { color: var(--muted); }
+.auth-hint span { flex: 1; }
+.auth-hint code { font-size: 10px; }
+.auth-hint .btn { font-size: 11px; }
+.recipe-code { margin-top: 18px; border: 1px solid var(--board-rule); border-radius: 8px; overflow: hidden; background: var(--board); }
+.code-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--board-rule); color: #aab5c7; font: 11px var(--mono); }
+.code-toolbar .btn { background: var(--board-2); border-color: var(--board-rule); color: #e8ecf3; font: 12px var(--body); }
+.recipe-code pre { margin: 0; border-radius: 0; padding: 20px; font-size: 12px; line-height: 1.9; }
+.recipe-footer { display: flex; gap: 7px; align-items: center; font-size: 11px; color: var(--muted); margin: 18px 0 0; }
+#settings-transfer { margin-top: 28px; padding: 20px 0 0; border: 0; border-top: 1px solid var(--rule); background: transparent; }
+#settings-transfer h2 { font-size: 14px; margin-bottom: 4px; }
+#settings-transfer p { font-size: 12px; color: var(--muted); max-width: 80ch; }
+#settings-transfer .toolbar { margin-bottom: 0; }
+button:disabled { cursor: not-allowed; }
+@media (max-width: 1000px) { .connect-layout { grid-template-columns: 200px minmax(0, 1fr); gap: 20px; } header .meta { gap: 10px; } }
+@media (max-width: 760px) {
+  header .meta .pill:not(.state) { display: none; }
+  .connect-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .connect-tools { display: flex; overflow-x: auto; padding: 2px 1px 6px; }
+  .connect-tool { flex: 0 0 auto; width: auto; padding: 10px; }
+  .connect-tool small, .tool-arrow { display: none; }
+  .connection-addresses { margin-top: 16px; padding-top: 14px; }
+  .connection-addresses .endpoint { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .connection-addresses > .detail { display: none; }
+  .connection-controls, .recipe-panel { padding: 18px; }
+  .connect-notice { align-items: start; flex-direction: column; }
+  .auth-hint span { min-width: 180px; }
+}
 </style>
 </head>
 <body>
@@ -636,21 +700,16 @@ button:disabled { cursor: wait; opacity: .6; }
 </aside>
 <div class="wrap" id="root">
   <header>
-
-    <button class="btn session-logout" id="sign-out" hidden>Sign out</button>
     <div class="meta">
       <span class="pill state"><span class="dot"></span><span id="state">connecting…</span></span>
       <span class="pill"><i data-ic="tag"></i><span id="ver">–</span></span>
       <span class="pill"><i data-ic="cpu"></i><span id="mem">–</span></span>
     </div>
     <div class="spacer"></div>
+    <button class="btn session-logout" id="sign-out" hidden>Sign out</button>
     <button class="cmdk-btn" id="cmdk-open" aria-label="Open command menu"><i data-ic="search"></i><span>Search…</span><kbd>⌘K</kbd></button>
-    <div class="endpoint">
-      <button class="copy" data-copy="oai"><b>OpenAI</b><span id="ep-oai">–</span><svg class="ci" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="5" width="8.5" height="8.5" rx="2"/><path d="M10.5 5V3.5a1.5 1.5 0 0 0-1.5-1.5H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5H5"/></svg></button>
-      <button class="copy" data-copy="anth"><b>Anthropic</b><span id="ep-anth">–</span><svg class="ci" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="5" width="8.5" height="8.5" rx="2"/><path d="M10.5 5V3.5a1.5 1.5 0 0 0-1.5-1.5H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5H5"/></svg></button>
       <button class="icon-btn" id="theme" title="Toggle theme" aria-label="Toggle theme"><i data-ic="moon"></i>
       </button>
-    </div>
   </header>
 
   <div class="banner"><span class="spin"></span><span><b>Connection lost.</b> Reconnecting automatically. If this continues, check the router with <code>tako status</code>.</span></div>
@@ -675,6 +734,7 @@ button:disabled { cursor: wait; opacity: .6; }
 
   <section class="grid kpis token-kpis" aria-label="Token usage since router start">
     <div class="kpi"><div class="label"><i data-ic="coins"></i>Tokens used</div><div class="value" id="k-tokens">0</div><div class="sub" id="k-tokens-sub">Since router start</div></div>
+    <div class="kpi"><div class="label"><i data-ic="gauge"></i>Est. tokens left</div><div class="value" id="k-tokens-left">Unknown</div><div class="sub" id="k-tokens-left-sub">Awaiting provider limit reports</div></div>
     <div class="kpi"><div class="label"><i data-ic="in"></i>Input tokens</div><div class="value" id="k-input">0</div><div class="sub">Includes cached input</div></div>
     <div class="kpi"><div class="label"><i data-ic="out"></i>Output tokens</div><div class="value" id="k-output">0</div><div class="sub">Generated responses and tool calls</div></div>
   </section>
@@ -743,14 +803,29 @@ button:disabled { cursor: wait; opacity: .6; }
     </div>
   </section>
   <section id="page-connect" hidden>
-    <div class="card connection-controls"><label class="field">Model or combo<select id="connect-model" aria-label="Model for connection recipes"></select></label><div><button class="btn" id="connect-keys">Manage API keys</button></div></div>
+    <div class="connect-layout">
+      <aside class="connect-sidebar">
+        <div class="section-label">01 / Choose your tool</div>
+        <div id="connect-tools" class="connect-tools" aria-label="Connection tools"></div>
+        <div class="connection-addresses"><div class="section-label">Router endpoints</div>
+    <div class="endpoint">
+      <button class="copy" data-copy="oai"><b>OpenAI</b><span id="ep-oai">–</span><svg class="ci" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="5" width="8.5" height="8.5" rx="2"/><path d="M10.5 5V3.5a1.5 1.5 0 0 0-1.5-1.5H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5H5"/></svg></button>
+      <button class="copy" data-copy="anth"><b>Anthropic</b><span id="ep-anth">–</span><svg class="ci" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="5" width="8.5" height="8.5" rx="2"/><path d="M10.5 5V3.5a1.5 1.5 0 0 0-1.5-1.5H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5H5"/></svg></button>
+    </div>
+        <p class="detail">Use these addresses when configuring other clients.</p></div>
+      </aside>
+      <div class="connect-main">
+        <div class="card connection-controls"><div class="section-label">02 / Select a route</div><label class="field">Model or combo<select id="connect-model" aria-label="Model for connection recipes"></select></label><div id="connect-route-note"></div></div>
+        <div id="connect-content" aria-live="polite"></div>
+      </div>
+    </div>
     <article class="card" id="settings-transfer">
       <h2>Move your setup</h2><p>Take your providers, API keys, combos, and routing preferences to another Tako installation.</p>
       <p class="detail">The export contains provider secrets. Keep the file private. Each machine keeps its own address, admin password, client keys, and update schedule.</p>
       <div class="toolbar"><button class="btn" id="settings-export">Export settings</button><button class="btn primary" id="settings-import">Import settings</button><input id="settings-file" type="file" accept=".json,application/json" hidden></div>
       <p id="settings-result" class="detail" role="status"></p>
     </article>
-    <div id="connect-content" class="connect-grid"></div>
+
   </section>
   <section id="page-access" hidden>
     <div class="access-summary">
@@ -958,6 +1033,13 @@ button:disabled { cursor: wait; opacity: .6; }
     countTo("k-output", tokens.output_tokens || 0);
     $("k-tokens-sub").textContent = `Since router start · finished streams/responses${tokens.estimated_requests ? ` · ${tokens.estimated_requests} estimated (~1 token / 4 bytes)` : ""}`;
     const limits = Object.entries(s.token_limits || {});
+    // Use one observation: targets and keys can share the same quota.
+    const latestLimit = limits.filter(([, q]) => Number.isFinite(q.remaining) && q.remaining >= 0)
+      .reduce((latest, entry) => !latest || entry[1].observed_at > latest[1].observed_at ? entry : latest, null);
+    $("k-tokens-left").textContent = latestLimit ? `~${latestLimit[1].remaining.toLocaleString()}` : "Unknown";
+    $("k-tokens-left-sub").textContent = latestLimit
+      ? `${latestLimit[0]} · reported ${fmtDur(Math.max(0, Date.now() / 1000 - latestLimit[1].observed_at))} ago · may share quota`
+      : "Awaiting provider limit reports";
     $("token-limits").innerHTML = limits.length ? limits.map(([key, q]) =>
       `<tr><td class="mono">${esc(key)}</td><td class="num">${q.remaining.toLocaleString()}</td><td class="num">${q.limit == null ? "Unknown" : q.limit.toLocaleString()}</td><td>${esc(q.reset || "Unknown")}</td><td>${esc(fmtDur(Math.max(0, Date.now() / 1000 - q.observed_at)))} ago</td></tr>`
     ).join("") : `<tr><td colspan="5" class="empty">Unknown — providers have not reported token limits yet.</td></tr>`;
@@ -1386,7 +1468,7 @@ button:disabled { cursor: wait; opacity: .6; }
     if (num.textContent !== String(liveN)) { num.textContent = liveN; num.classList.remove("bump"); void num.offsetWidth; num.classList.add("bump"); }
     feedGroups.clear();
     if (!groups.length) {
-      if (!box.querySelector(".board-empty")) box.innerHTML = `<div class="board-empty"><b>No requests yet</b>Point a client at the endpoint above, or run <code>tako claude</code>. Each request shows up here the moment it arrives.</div>`;
+      if (!box.querySelector(".board-empty")) box.innerHTML = `<div class="board-empty"><b>No requests yet</b>Open Connect for your client settings, or run <code>tako claude</code>. Each request shows up here the moment it arrives.</div>`;
       feedRows.clear(); firstFeed = false; return;
     }
     const query = $("request-search").value.toLowerCase(), filter = $("request-filter").value;
@@ -1539,7 +1621,7 @@ button:disabled { cursor: wait; opacity: .6; }
     providers: ['Providers', 'Connect your APIs. Put every key to work.', 'Add provider'],
     routes: ['Combos', 'Choose the models. Set the order. Let fallback handle the rest.', 'New combo'],
     chat: ['Playground', 'Try your routes in a conversation, with real fallback and key rotation.', null],
-    connect: ['Connect your tools', 'Choose a model, copy your settings, and send your first request.', null],
+    connect: ['One router. Your favorite tools.', 'Connect an editor or app to your models in a few steps.', null],
     access: ['Access & keys', 'Protect your panel. Give every app its own key.', null],
     logs: ['Router logs', 'A closer look at what’s happening under the hood.', 'Refresh logs'],
   };
@@ -1899,27 +1981,42 @@ button:disabled { cursor: wait; opacity: .6; }
     finally { chatBusy = false; updateChatModels(); poll(); input.focus(); }
   };
   // ---- connection recipes ----
+  let selectedTool = 0;
   function renderConnect() {
     const picker = $('connect-model');
     const selected = picker.value;
-    const models = [...new Set([overview?.default, ...Object.keys(overview?.combos || {}), ...Object.values(overview?.combos || {}).flat()].filter(Boolean))];
-    picker.innerHTML = models.length ? models.map(m => `<option value="${esc(m)}">${esc(m)}${m === overview?.default ? ' (default)' : ''}</option>`).join('') : '<option value="free">free — create a combo first</option>';
+    const models = [...new Set([...Object.keys(overview?.combos || {}), ...Object.values(overview?.combos || {}).flat()].filter(Boolean))];
+    picker.innerHTML = models.length ? models.map(m => `<option value="${esc(m)}">${esc(m)}${m === overview?.default ? ' (default)' : ''}</option>`).join('') : '<option value="YOUR_MODEL">Choose a combo to get started</option>';
     if (models.includes(selected)) picker.value = selected;
+    else if (models.includes(overview?.default)) picker.value = overview.default;
+    picker.disabled = !models.length;
+    $('connect-route-note').innerHTML = models.length ? '<p class="detail">Requests follow the fallback order configured in Combos.</p>' : '<div class="connect-notice"><span>Create a combo before sending your first request.</span><button class="btn" id="connect-create">Create combo →</button></div>';
+    if ($('connect-create')) $('connect-create').onclick = () => navigate('routes');
     const model = picker.value;
     const token = overview?.auth ? 'YOUR_TAKO_API_KEY' : 'tako';
     const recipes = [
-      ['Claude Code', 'Run on your computer to connect Claude Code to this router.', `env -u ANTHROPIC_API_KEY ANTHROPIC_BASE_URL=${shellQuote(origin)} ANTHROPIC_AUTH_TOKEN=${shellQuote(token)} ANTHROPIC_MODEL=${shellQuote(model)} claude`],
+      ['Claude Code', 'Run on your computer to connect Claude Code to this router.', `env -u ANTHROPIC_API_KEY \\
+  ANTHROPIC_BASE_URL=${shellQuote(origin)} \\
+  ANTHROPIC_AUTH_TOKEN=${shellQuote(token)} \\
+  ANTHROPIC_MODEL=${shellQuote(model)} \\
+  claude`],
       ['OpenCode', 'Add this provider to opencode.json, then choose tako in /models.', JSON.stringify({ provider: { tako: { npm: '@ai-sdk/openai-compatible', name: 'tako', options: { baseURL: origin + '/v1', apiKey: token }, models: { [model]: { name: model + ' (tako)' } } } } }, null, 2)],
       ['Aider', 'Launch Aider with your selected fallback combo.', `aider --openai-api-base ${shellQuote(origin + '/v1')} --openai-api-key ${shellQuote(token)} --model ${shellQuote('openai/' + model)}`],
       ['Cursor, Continue & SDKs', 'Use these settings in any OpenAI-compatible client. Anthropic clients use the base URL without /v1.', `Base URL  ${origin}/v1\nAPI key   ${token}\nModel     ${model}`],
       ['Test with curl', 'Send a request, then see which provider served it in Overview.', `curl ${shellQuote(origin + '/v1/chat/completions')} \\\n  -H 'Content-Type: application/json' \\\n  -H ${shellQuote('Authorization: Bearer ' + token)} \\\n  -d ${shellQuote(JSON.stringify({ model, messages: [{ role: 'user', content: 'Hi!' }] }))}`],
     ];
-    $('connect-content').innerHTML = (overview?.auth ? '<div class="card" style="grid-column:1/-1">Router authentication is enabled. Replace <code>YOUR_TAKO_API_KEY</code> with a key from Access & keys.</div>' : '') + recipes.map(([title, desc, code], i) => `<article class="card"><h2>${title === 'Claude Code' ? logoTile('claudecode') : title === 'OpenCode' ? logoTile('opencode') : title.startsWith('Cursor') ? logoTile('cursor') : `<span class="tool">${ic('terminal')}</span>`}${esc(title)}<span class="act"><button class="btn" data-recipe="${i}">${ic("copy")}Copy</button></span></h2><p class="description">${esc(desc)}</p><pre>${esc(code)}</pre></article>`).join('');
-    document.querySelectorAll('[data-recipe]').forEach(b => b.onclick = () => copyText(recipes[Number(b.dataset.recipe)][2]));
+    const subtitles = ['Terminal agent', 'Code with any model', 'AI pair programming', 'Editors & applications', 'Make a test request'];
+    const toolIcon = i => i === 0 ? logoTile('claudecode') : i === 1 ? logoTile('opencode') : i === 3 ? logoTile('cursor') : `<span class="tool">${ic('terminal')}</span>`;
+    $('connect-tools').innerHTML = recipes.map(([title], i) => `<button class="connect-tool ${i === selectedTool ? 'selected' : ''}" data-tool="${i}" aria-pressed="${i === selectedTool}">${toolIcon(i)}<span><strong>${esc(title)}</strong><small>${subtitles[i]}</small></span><span class="tool-arrow" aria-hidden="true">›</span></button>`).join('');
+    const [title, desc, code] = recipes[selectedTool];
+    const filename = ['Terminal', 'opencode.json', 'Terminal', 'Client settings', 'Terminal'][selectedTool];
+    $('connect-content').innerHTML = `<article class="card recipe-panel"><div class="section-label">03 / Configure your tool</div><h2>${toolIcon(selectedTool)}${esc(title)}</h2><p class="description">${esc(desc)}</p>${overview?.auth ? '<div class="auth-hint">' + ic('key') + '<span>Replace <code>YOUR_TAKO_API_KEY</code> with a key from Access & keys.</span><button class="btn sm" id="connect-keys">Manage keys →</button></div>' : ''}<div class="recipe-code"><div class="code-toolbar"><span>${filename}</span><button class="btn sm" data-recipe="${selectedTool}" ${!models.length ? 'disabled' : ''}>${ic('copy')}Copy ${selectedTool === 1 ? 'config' : 'settings'}</button></div><pre>${esc(code)}</pre></div><p class="recipe-footer">${ic('activity')}Once connected, requests appear in Overview.</p></article>`;
+    document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => { selectedTool = Number(b.dataset.tool); renderConnect(); document.querySelector(`[data-tool="${selectedTool}"]`).focus(); });
+    document.querySelector('[data-recipe]').onclick = () => copyText(code);
+    if ($('connect-keys')) $('connect-keys').onclick = () => navigate('access');
   }
   function shellQuote(s) { return "'" + s.replace(/'/g, "'\\''") + "'"; }
   $('connect-model').onchange = renderConnect;
-  $('connect-keys').onclick = () => navigate('access');
   let security = null, securityLoading = false;
   async function loadSecurity() {
     if (securityLoading) return; securityLoading = true;

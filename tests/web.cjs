@@ -16,11 +16,18 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  proc=spawn(path.join(root,'target/debug/tako'),['run'],{env:{...process.env,TAKO_HOME:fixture},stdio:'ignore'});
  for(let i=0;i<100;i++){try{const r=await fetch(base+'/health');if(r.ok)break;}catch{}await new Promise(r=>setTimeout(r,50));}
  const errors=[]; const logs=new VirtualConsole();logs.on('jsdomError',e=>errors.push(e.message));
- let copied='', downloaded=null, downloadName='';
+ let copied='', downloaded=null, downloadName='', tokenLimits=null;
  const dom=new JSDOM(fs.readFileSync(root+'/src/web/index.html','utf8'),{
   url:base+'/ui',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:logs,
   beforeParse(w){
-   w.fetch=(url,options={})=>fetch(new URL(url,base),{...options,headers:options.headers});
+   w.fetch=async(url,options={})=>{
+    const response=await fetch(new URL(url,base),{...options,headers:options.headers});
+    if(new URL(url,base).pathname==='/status' && tokenLimits!==null){
+     const status=await response.json();status.token_limits=tokenLimits;
+     return {ok:response.ok,status:response.status,json:async()=>status};
+    }
+    return response;
+   };
    w.URL.createObjectURL=blob=>{downloaded=blob;return 'blob:tako-test';};
    w.URL.revokeObjectURL=()=>{};
    w.HTMLAnchorElement.prototype.click=function(){downloadName=this.download;};
@@ -35,6 +42,14 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  const w=dom.window,d=w.document,$=s=>d.querySelector(s),click=s=>{assert.ok($(s),s);$(s).click();};
  await wait(()=>$('#onboarding').textContent.includes('Connect a provider'));
  assert.equal(d.querySelectorAll('.setup-step').length,3);
+ assert.equal($('#k-tokens-left').textContent,'Unknown');
+ const observed=Math.floor(Date.now()/1000);
+ tokenLimits={'old/model':{remaining:900,limit:1000,observed_at:observed-60},'new/model':{remaining:250,limit:1000,observed_at:observed}};
+ await wait(()=>$('#k-tokens-left').textContent==='~250');
+ assert.match($('#k-tokens-left-sub').textContent,/new\/model/);
+ tokenLimits={'new/model':{remaining:0,limit:1000,observed_at:observed}};
+ await wait(()=>$('#k-tokens-left').textContent==='~0');
+ tokenLimits={};await wait(()=>$('#k-tokens-left').textContent==='Unknown');
  assert.equal(d.title,'tako dashboard');
  assert.equal($('.brand').textContent,'tako');
  assert.ok($('.brand .tako-mark'));
@@ -57,6 +72,14 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  click('#dismiss-key');assert.equal($('#new-key').value,'');
  click('[data-page="connect"]');assert.match($('#connect-content').textContent,/ANTHROPIC_BASE_URL/);
  assert.ok($('#connect-content').textContent.includes(base));
+ assert.equal($('#connect-model').disabled,true);
+ assert.equal($('[data-recipe]').disabled,true);
+ click('[data-tool="1"]');
+ assert.equal($('[data-tool="1"]').getAttribute('aria-pressed'),'true');
+ assert.match($('#connect-content').textContent,/opencode.json/);
+ assert.equal(d.querySelectorAll('#connect-content article').length,1);
+ click('[data-tool="0"]');
+
  const search=query=>{click('#cmdk-open');$('#cmdk-q').value=query;$('#cmdk-q').dispatchEvent(new w.Event('input',{bubbles:true}));};
  search('move');assert.match($('#cmdk-list').textContent,/Move your setup/);
  click('#cmdk-list .cmdk-item.on');assert.equal($('#cmdk').hidden,true);
@@ -88,6 +111,18 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  await choose(bundle);$('#dialog-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  await wait(()=>!$('#modal').open&&$('#settings-result').textContent.includes('Imported 1 providers'));
  assert.ok(fs.readdirSync(fixture).some(f=>f.startsWith('config.before-import-')));
+ assert.equal($('#connect-model').disabled,false);
+ assert.equal($('#connect-model').value,'portable');
+ click('[data-tool="1"]');click('[data-recipe]');
+ await wait(()=>copied.includes('@ai-sdk/openai-compatible'));
+ const provider=JSON.parse(copied).provider.tako;
+ assert.equal(provider.options.baseURL,base+'/v1');
+ assert.ok(provider.models.portable);
+ $('#connect-model').value='portable/model';$('#connect-model').dispatchEvent(new w.Event('change',{bubbles:true}));
+ assert.equal($('[data-tool="1"]').getAttribute('aria-pressed'),'true');
+ click('[data-recipe]');await wait(()=>copied.includes('portable/model'));
+ assert.ok(JSON.parse(copied).provider.tako.models['portable/model']);
+
  const config=fs.readFileSync(path.join(fixture,'config.toml'),'utf8');
  assert.match(config,/test-transfer-key/);assert.ok(config.includes('127.0.0.1:'+port));
  const bad={...bundle,settings:'[combos]\ninvalid=["missing/model"]'};
