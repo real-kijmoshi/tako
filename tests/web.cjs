@@ -183,7 +183,12 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  assert.equal(errors.length,0,errors.join('\n'));
  // The Code page pairs an outbound PC, queues real jobs and renders untrusted patch text safely.
  click('[data-page="code"]');await wait(()=>$('#code-start').disabled);
- assert.match($('#code-setup-commands').textContent,/tako-code.py setup --url http:/);
+ assert.match($('#code-setup-commands').textContent,/\.\/tako-code setup --url http:/);
+ assert.doesNotMatch($('#code-setup-commands').textContent,/python/);
+ assert.match($('#code-download').href,/releases\/latest\/download\/tako-code-(macos|linux)-/);
+ $('#code-os').value='windows-x86_64';$('#code-os').dispatchEvent(new w.Event('change'));
+ assert.match($('#code-download').href,/tako-code-windows-x86_64\.exe$/);
+ assert.match($('#code-setup-commands').textContent,/Invoke-WebRequest .*-OutFile tako-code\.exe\n\.\\tako-code\.exe setup/);
  const codeKey=(await (await fetch(base+'/api/action',{method:'POST',headers:{'content-type':'application/json','x-tako':'1'},body:JSON.stringify({action:'key.create',name:'Code runner'})})).json()).key;
  const codeRequest=async(endpoint,body)=>{const r=await fetch(base+endpoint,{method:'POST',headers:{'content-type':'application/json','x-tako':'1',Authorization:'Bearer '+codeKey},body:JSON.stringify(body)});assert.equal(r.status,200,await r.clone().text());return r.json();};
  const pc={runner:'ui-pc',name:'My <PC>',projects:[{id:'app',name:'Local app'}],engines:['builtin']};

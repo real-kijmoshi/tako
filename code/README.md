@@ -2,22 +2,33 @@
 
 A separate PC runner for coding swarms controlled from the Tako web UI. Repositories, Git worktrees, worker processes and tests run on your PC. Your VPS queues jobs and routes model requests. The runner connects outward over HTTPS; no PC port needs exposing.
 
-Requires Python 3.11+ and Git on Windows, macOS or Linux. Download `tako-code.pyz` from the release, or `tako-code.py` from the **Code swarms** tab on your VPS. Both files contain the same client. A router binary also exposes `tako code` when Python 3 is installed.
+Tako Code is a single executable for macOS (Apple silicon and Intel), Linux (x86_64 and ARM64) and Windows (x86_64). No Python is needed; Git is. The **Code swarms** page on your VPS shows the download and setup commands for your PC. If you already have Tako on the PC, put `tako-code` next to `tako` or on your PATH and `tako code` runs it.
 
 ## Setup
 
 Update Tako on the VPS to a version with Code swarms. Connect eligible free model providers there and create a Tako client key under **Access & keys**. Provider keys stay on the VPS.
 
-On the PC, using your own URL:
+On the PC, using your own URL (pick the asset for your system: `tako-code-macos-aarch64`, `tako-code-macos-x86_64`, `tako-code-linux-x86_64`, `tako-code-linux-aarch64`):
 
 ```sh
-python3 tako-code.pyz setup --url https://tako.example.com
+curl -fL https://github.com/real-kijmoshi/tako/releases/latest/download/tako-code-macos-aarch64 -o tako-code
+chmod +x tako-code
+./tako-code setup --url https://tako.example.com
 # Enter the Tako client key at the hidden prompt.
-python3 tako-code.pyz project add /path/to/repository --test-json '["npm","test"]'
-python3 tako-code.pyz run
+./tako-code project add /path/to/repository --test-json '["npm","test"]'
+./tako-code run
 ```
 
-On Windows, use `py -3` instead of `python3`, and a Windows repository path. Shell quoting for `--test-json` varies; the value must be a JSON argv array. You can omit tests, but the UI will clearly show that none were configured. Repeat `--test-json` for up to eight commands. Commands run directly, without a shell, with a five-minute limit each. Only configure commands you trust to execute generated code locally.
+On Windows (PowerShell):
+
+```powershell
+Invoke-WebRequest https://github.com/real-kijmoshi/tako/releases/latest/download/tako-code-windows-x86_64.exe -OutFile tako-code.exe
+.\tako-code.exe setup --url https://tako.example.com
+```
+
+Downloading with `curl` avoids macOS Gatekeeper's quarantine. If you download in a browser, macOS may refuse to open the unsigned file; run `xattr -d com.apple.quarantine tako-code` once. Windows SmartScreen may also warn about an unsigned download. The executables are built from `code/tako_code.py` by the release workflow; checksums are in `SHA256SUMS`. Prefer Python? `tako-code.pyz` (release) and `tako-code.py` (Code swarms page) are the same client for Python 3.11+.
+
+Use a Windows repository path on Windows. Shell quoting for `--test-json` varies; the value must be a JSON argv array. You can omit tests, but the UI will clearly show that none were configured. Repeat `--test-json` for up to eight commands. Commands run directly, without a shell, with a five-minute limit each. Only configure commands you trust to execute generated code locally.
 
 The repository needs an initial commit and a clean checkout when a job begins. `project add` is the local allowlist: a web job cannot choose arbitrary filesystem paths. Only project IDs and display names are registered with the VPS. Restart the runner after changing projects or installed engines.
 
@@ -26,7 +37,7 @@ Open **Code swarms** in the hosted web UI, select the PC, project, engine and 1â
 Review the patch, actual test output and model review in the UI. To apply a ready job on the PC:
 
 ```sh
-python3 tako-code.pyz apply JOB_ID
+./tako-code apply JOB_ID
 ```
 
 Apply works while the runner remains connected. It requires the original checkout to be clean and still at the starting commit, and only fast-forwards it. It does not push or deploy. Changed branches require a manual merge instead. The complete patch is also saved under `~/.config/tako-code/jobs/JOB_ID/changes.patch`; the web preview is limited to 50,000 characters.

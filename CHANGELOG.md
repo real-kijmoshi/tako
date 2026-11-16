@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.8 — 2026-11-16
+
+- Ship Tako Code as standalone executables for macOS (Apple silicon, Intel), Linux (x86_64, ARM64) and Windows (x86_64). No Python is needed to run it.
+- Show per-OS download and copyable install/setup commands on the Code swarms page; the Python script remains as an alternative.
+- Make `tako code` run the `tako-code` executable found next to `tako` or on PATH, and explain where to get it when it is missing.
+- Generate `tako-code apply JOB_ID` commands that work from the executable.
+
 ## 0.1.7 — 2026-11-16
 
 - Add Tako Code, a separate PC client (`tako-code.pyz`, also `tako code`) that runs coding swarms on your own computer: a planner splits the task, 1–6 workers run in parallel Git worktrees, and the coordinator merges, runs locally configured tests and requests a review before you apply.

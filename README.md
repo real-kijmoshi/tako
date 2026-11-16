@@ -144,13 +144,16 @@ tested and reviewed before you apply it. Workers can be the built-in agent,
 your VPS to free models only, with no paid fallback.
 
 ```sh
-python3 tako-code.pyz setup --url https://your-vps.example.com   # asks for the client key
-python3 tako-code.pyz project add ~/code/my-app --test-json '["npm","test"]'
-python3 tako-code.pyz run
+curl -fL https://github.com/real-kijmoshi/tako/releases/latest/download/tako-code-macos-aarch64 -o tako-code && chmod +x tako-code
+./tako-code setup --url https://your-vps.example.com   # asks for the client key
+./tako-code project add ~/code/my-app --test-json '["npm","test"]'
+./tako-code run
 ```
 
-Download `tako-code.pyz` from the [latest release](https://github.com/real-kijmoshi/tako/releases/latest)
-or the Code swarms page. Python 3.11+ and Git are required. See the
+Tako Code is a single executable for macOS, Linux and Windows: no Python needed,
+just Git. Swap `macos-aarch64` for `macos-x86_64`, `linux-x86_64`, `linux-aarch64`
+or `windows-x86_64.exe`, or copy the commands for your PC from the Code swarms
+page. All assets are on the [latest release](https://github.com/real-kijmoshi/tako/releases/latest). See the
 [Tako Code guide](code/README.md) for engines, safety limits and privacy.
 
 ## Smart routes

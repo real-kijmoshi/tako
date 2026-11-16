@@ -25,7 +25,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.1.7"
+VERSION = "0.1.8"
 TERMINAL = {"ready", "needs_attention", "failed", "cancelled", "applied"}
 HOME = Path(os.environ.get("TAKO_CODE_HOME", Path.home() / ".config" / "tako-code"))
 DENIED = {".git", ".env", ".env.local", ".env.production", ".ssh", ".aws", ".npmrc", ".pypirc"}
@@ -545,7 +545,7 @@ class Swarm:
                 review = "Configured tests modified the review worktree; inspect those changes before applying.\n" + str(review)
             self.event("Tests failed; inspect review branch" if failed else "Changes ready for your review",
                 phase="needs_attention" if failed else "ready", review=str(review)[:40000], tests=tests,
-                apply_command=(subprocess.list2cmdline if os.name == "nt" else shlex.join)([sys.executable, str(Path(sys.argv[0]).resolve()), "apply", self.job["id"]]))
+                apply_command=(subprocess.list2cmdline if os.name == "nt" else shlex.join)([*self_command(), "apply", self.job["id"]]))
         except Cancelled as e:
             self.event(str(e), phase="cancelled")
         except Exception as e:
@@ -553,6 +553,12 @@ class Swarm:
         finally:
             self.flush()
 
+
+def self_command():
+    # A standalone executable is its own interpreter; a script needs Python in front.
+    if getattr(sys, "frozen", False):
+        return [sys.executable]
+    return [sys.executable, str(Path(sys.argv[0]).resolve())]
 
 def available_engines():
     return ["builtin"] + [e for e in ["opencode", "claude", "codex"] if shutil.which(e) and not (os.name == "nt" and shutil.which(e).lower().endswith((".cmd", ".bat")))]

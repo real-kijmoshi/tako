@@ -1387,7 +1387,7 @@ dependencies = [
 
 [[package]]
 name = "tako"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "argon2",
  "bytes",

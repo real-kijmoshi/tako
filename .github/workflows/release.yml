@@ -55,8 +55,38 @@ jobs:
           name: ${{ matrix.asset }}
           path: ${{ matrix.asset }}
           if-no-files-found: error
+  code:
+    # Standalone Tako Code executables: no Python needed on the PC that runs them.
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, asset: tako-code-macos-aarch64 }
+          - { os: macos-15-intel, asset: tako-code-macos-x86_64 }
+          - { os: ubuntu-latest, asset: tako-code-linux-x86_64 }
+          - { os: ubuntu-24.04-arm, asset: tako-code-linux-aarch64 }
+          - { os: windows-latest, asset: tako-code-windows-x86_64.exe }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pyinstaller==6.22.3
+      - run: python scripts/build-code-binary.py
+      - name: Check the executable name and that it runs
+        shell: bash
+        run: |
+          test -f "dist/${{ matrix.asset }}"
+          "dist/${{ matrix.asset }}" version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+          if-no-files-found: error
   package:
-    needs: build
+    needs: [build, code]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -68,7 +98,9 @@ jobs:
           merge-multiple: true
       - name: Check assets and generate checksums
         run: |
-          test "$(find dist -maxdepth 1 -type f -name 'tako-*' | wc -l)" -eq 4
+          test "$(find dist -maxdepth 1 -type f -name 'tako-*' ! -name 'tako-code*' | wc -l)" -eq 4
+          test "$(find dist -maxdepth 1 -type f -name 'tako-code-*' | wc -l)" -eq 5
+          chmod 755 dist/tako-code-macos-* dist/tako-code-linux-*
           python3 scripts/build-code-client.py
           python3 dist/tako-code.pyz version
           cd dist
