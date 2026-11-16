@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.7 — 2026-11-16
+
+- Add Tako Code, a separate PC client (`tako-code.pyz`, also `tako code`) that runs coding swarms on your own computer: a planner splits the task, 1–6 workers run in parallel Git worktrees, and the coordinator merges, runs locally configured tests and requests a review before you apply.
+- Add a **Code swarms** page to the web UI to pair PCs, start swarms, watch each agent, read the patch, tests and review, cancel, and copy the apply command. Serve the client download from `/downloads/tako-code.py`.
+- Support built-in, Claude Code, Codex CLI and OpenCode workers. Each external CLI gets a private home and is pointed at the Tako gateway.
+- Add a free-only gateway under `/code/v1` (chat completions, Anthropic messages and the Responses API). It ignores requested model names, aliases and the default route, and never falls back to paid models.
+- Add an OpenAI Responses API adapter so Codex CLI can work on free chat-completion models, including streaming events, function calls and Codex's freeform `apply_patch` tool.
+- Show "Not reported" instead of "Unknown" when providers send no remaining-token limits, and explain why usage alone cannot determine what remains.
+- Build and checksum `tako-code.pyz` with each release; run the Tako Code tests in CI and `scripts/check-release.sh`.
+
 ## 0.1.6 — 2026-11-16
 
 - Correct Nous Portal’s API access classification: obtaining a key requires credits or a plan; exclude Nous targets from free routes even when their IDs end in :free.

@@ -1,11 +1,13 @@
 mod auth;
 mod auto_update;
 mod catalog;
+mod codehub;
 mod config;
 mod daemon;
 mod dashboard;
 mod edit;
 mod failure;
+mod responses;
 mod route;
 mod server;
 mod settings;
@@ -21,6 +23,7 @@ tako: one local endpoint for all your AI providers, with automatic fallback
 usage: tako [command]     (no command opens the dashboard)
 
   claude       launch Claude Code through tako (starts tako if needed)
+  code         run the separate PC coding-swarm client (Python 3.11+)
   web          open the web dashboard in your browser (starts tako if needed)
 
   start        start in the background
@@ -57,6 +60,7 @@ fn main() {
     let r = match cmd {
         "tui" | "ui" | "dash" => tui::run(),
         "claude" => daemon::claude(&args[1..]),
+        "code" => code_command(&args[1..]),
         "web" | "browser" | "open" => daemon::web(),
         "run" => server::run(),
         "start" => done(daemon::start()),
@@ -100,6 +104,30 @@ fn main() {
         eprintln!("{} {e}", util::red("error:"));
         std::process::exit(1);
     }
+}
+
+fn code_command(args: &[String]) -> Result<(), String> {
+    use std::os::unix::process::CommandExt;
+    let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+    let beside = executable.with_file_name("tako-code.pyz");
+    let source = executable.with_file_name("tako-code.py");
+    let script = if beside.is_file() {
+        beside
+    } else if source.is_file() {
+        source
+    } else {
+        let path = config::dir().join("code-client.py");
+        std::fs::create_dir_all(config::dir()).map_err(|e| e.to_string())?;
+        std::fs::write(&path, include_str!("../code/tako_code.py")).map_err(|e| e.to_string())?;
+        path
+    };
+    Err(format!(
+        "Cannot start Tako Code: {}",
+        std::process::Command::new("python3")
+            .arg(script)
+            .args(args)
+            .exec()
+    ))
 }
 
 fn setup_vps(args: &[String]) -> Result<(), String> {

@@ -126,7 +126,9 @@ When a provider omits counters, tako estimates at roughly one token per four
 bytes of prompt/generated content and marks the response as estimated. Failed
 attempts without usage reports are excluded. Remaining tokens show the latest
 provider rate-limit headers per target/key, with reset and observation time in
-the web overview; absent limits are shown as unknown. These are window snapshots,
+the web overview. Before traffic, the card shows a dash; after traffic without
+limit reports, it shows **Not reported** and directs you to your provider account.
+Token usage alone cannot determine a remaining allowance. These are window snapshots,
 not account balances, and quotas may be shared across targets. Stats reset when
 the router restarts.
 

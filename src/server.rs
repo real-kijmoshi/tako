@@ -38,6 +38,7 @@ struct App {
     auth: crate::auth::Auth,
     internal_key: String,
     require_password: bool,
+    code: crate::codehub::Hub,
 }
 
 #[derive(Clone, Copy)]
@@ -444,6 +445,7 @@ async fn serve(path: PathBuf, cfg: Config) -> Result<(), String> {
         auth: crate::auth::Auth::default(),
         internal_key,
         require_password,
+        code: crate::codehub::Hub::open(crate::config::dir().join("code-state.json"))?,
     });
 
     let shutdown = shutdown_signal();
@@ -572,6 +574,21 @@ async fn handle(app: Arc<App>, req: Request<Incoming>, loopback: bool) -> Respon
         }
         ("GET", "/") if browser => return redirect("/ui"),
         ("GET", "/" | "/health") => return text(200, "ok"),
+        ("GET", "/downloads/tako-code.py") => {
+            return Response::builder()
+                .header("content-type", "application/octet-stream")
+                .header(
+                    "content-disposition",
+                    "attachment; filename=\"tako-code.py\"",
+                )
+                .header("cache-control", "no-store")
+                .body(
+                    Full::new(Bytes::from_static(include_bytes!("../code/tako_code.py")))
+                        .map_err(|n: Infallible| match n {})
+                        .boxed_unsync(),
+                )
+                .unwrap()
+        }
         ("GET", "/status") => {
             if credentials.protected() && !admin && !local_admin {
                 return error(wire, 401, "authentication_error", "Sign in to view status");
@@ -623,12 +640,38 @@ async fn handle(app: Arc<App>, req: Request<Incoming>, loopback: bool) -> Respon
         );
     }
     match (method.as_str(), path.as_str()) {
+        ("GET", "/v1/code/capabilities") => json_resp(
+            200,
+            &json!({"protocol":1,"free_gateway":true,"engines":["builtin","opencode","claude","codex"]}),
+        ),
+        ("POST", p) if p.starts_with("/v1/code/") => {
+            let action = p.trim_start_matches("/v1/code/");
+            match read_body(req)
+                .await
+                .and_then(|b| {
+                    serde_json::from_slice::<Value>(&b).map_err(|_| "Invalid runner JSON".into())
+                })
+                .and_then(|v| app.code.runner(action, &v))
+            {
+                Ok(v) => json_resp(200, &v),
+                Err(e) => error(wire, 400, "code_error", &e),
+            }
+        }
+        ("GET", "/code/v1/models") => json_resp(
+            200,
+            &json!({"object":"list","data":[{"id":"free:coding","object":"model"},{"id":"free:reasoning","object":"model"}]}),
+        ),
+        ("POST", "/code/v1/chat/completions") => proxy(app, cfg, Wire::Openai, req).await,
+        ("POST", "/code/v1/messages") => proxy(app, cfg, Wire::Anthropic, req).await,
+        ("POST", "/code/v1/responses") => responses(app, cfg, req).await,
         ("GET", "/v1/models" | "/models") => json_resp(200, &models(&cfg)),
-        ("POST", "/v1/messages/count_tokens") => match read_body(req).await {
-            // rough estimate; good enough for clients that only use it for context bookkeeping
-            Ok(b) => json_resp(200, &json!({"input_tokens": b.len() / 4})),
-            Err(e) => error(wire, 400, "invalid_request_error", &e),
-        },
+        ("POST", "/v1/messages/count_tokens" | "/code/v1/messages/count_tokens") => {
+            match read_body(req).await {
+                // rough estimate; good enough for clients that only use it for context bookkeeping
+                Ok(b) => json_resp(200, &json!({"input_tokens": b.len() / 4})),
+                Err(e) => error(wire, 400, "invalid_request_error", &e),
+            }
+        }
         ("POST", "/v1/chat/completions" | "/chat/completions") => {
             proxy(app, cfg, Wire::Openai, req).await
         }
@@ -711,6 +754,14 @@ async fn ui(app: Arc<App>, method: &str, path: &str, req: Request<Incoming>) -> 
         );
     }
     match (method, path) {
+        ("GET", "/api/code") => match app.code.overview() {
+            Ok(v) => json_resp(200,&v), Err(e) => error(Wire::Openai,500,"code_error",&e),
+        },
+        ("POST", "/api/code/action") => {
+            match read_body(req).await.and_then(|b| serde_json::from_slice::<Value>(&b).map_err(|_| "Invalid JSON".into())).and_then(|v| app.code.admin(v["action"].as_str().unwrap_or(""),&v)) {
+                Ok(v) => json_resp(200,&v), Err(e) => error(Wire::Openai,400,"code_error",&e),
+            }
+        }
         ("POST", "/api/logout") => {
             app.auth.logout(&cookie(req.headers()));
             let mut r = json_resp(200, &json!({"ok": true}));
@@ -839,6 +890,7 @@ async fn proxy(
     wire: Wire,
     req: Request<Incoming>,
 ) -> Response<Body> {
+    let free_only = req.uri().path().starts_with("/code/");
     let beta = req
         .headers()
         .get("anthropic-beta")
@@ -859,19 +911,50 @@ async fn proxy(
             )
         }
     };
+    proxy_json(app, cfg, wire, free_only, beta, body).await
+}
+
+/// Route an already parsed request. `free_only` restricts it to free catalog routes
+/// with no paid fallback (the Tako Code gateway).
+async fn proxy_json(
+    app: Arc<App>,
+    cfg: Arc<Config>,
+    wire: Wire,
+    free_only: bool,
+    beta: Option<String>,
+    body: Value,
+) -> Response<Body> {
     let Some(model) = body["model"].as_str().map(String::from) else {
         return error(wire, 400, "invalid_request_error", "missing \"model\"");
     };
     // A smart route ranks models for this request; from here on the request is shown by
     // its route (e.g. `free:auto → coding`) so the dashboard says which way it went.
     let health = |tag: &str| app.health(tag);
-    let (targets, model) = match crate::route::plan(&cfg, &model, &body, &health) {
-        Some(Ok(plan)) => (plan.targets, plan.label),
-        Some(Err(e)) => return error(wire, 404, "not_found_error", &e),
-        None => match cfg.resolve(&model) {
-            Ok(t) => (t, model),
-            Err(e) => return error(wire, 404, "not_found_error", &e),
-        },
+    let (targets, model) = if free_only {
+        let task = if model == "free:reasoning" {
+            "reasoning"
+        } else {
+            "coding"
+        };
+        let targets = crate::route::rank(&cfg, "free", task, &health);
+        if targets.is_empty() {
+            return error(
+                wire,
+                503,
+                "free_models_unavailable",
+                "No free model routes are available. Paid fallback is disabled for Tako Code.",
+            );
+        }
+        (targets, format!("code/free:{task}"))
+    } else {
+        match crate::route::plan(&cfg, &model, &body, &health) {
+            Some(Ok(plan)) => (plan.targets, plan.label),
+            Some(Err(e)) => return error(wire, 404, "not_found_error", &e),
+            None => match cfg.resolve(&model) {
+                Ok(t) => (t, model),
+                Err(e) => return error(wire, 404, "not_found_error", &e),
+            },
+        }
     };
     let stream = body["stream"] == true;
     let policy = Policy {
@@ -1343,6 +1426,100 @@ fn deliver_stream(head: Bytes, rest: ByteStream, wire: Wire, pwire: Wire) -> Res
         if !out.is_empty() {
             let _ = tx.send(Bytes::from(out)).await;
         }
+    });
+    let s = futures_util::stream::unfold(rx, |mut rx| async move {
+        rx.recv()
+            .await
+            .map(|b| (Ok::<_, io::Error>(Frame::data(b)), rx))
+    });
+    sse(StreamBody::new(s).boxed_unsync())
+}
+
+/// `/code/v1/responses`: the Responses API (Codex CLI) on top of free chat routes.
+async fn responses(app: Arc<App>, cfg: Arc<Config>, req: Request<Incoming>) -> Response<Body> {
+    use crate::responses as rs;
+    let wire = Wire::Openai;
+    let body: Value = match read_body(req)
+        .await
+        .and_then(|b| serde_json::from_slice(&b).map_err(|e| format!("invalid json: {e}")))
+    {
+        Ok(v) => v,
+        Err(e) => return error(wire, 400, "invalid_request_error", &e),
+    };
+    let chat = match rs::to_chat(&body) {
+        Ok(c) => c,
+        Err(e) => return error(wire, 400, "invalid_request_error", &e),
+    };
+    let mut raw = [0u8; 12];
+    rand_core::RngCore::fill_bytes(&mut rand_core::OsRng, &mut raw);
+    let id: String = raw.iter().map(|b| format!("{b:02x}")).collect();
+    let created = crate::util::now_secs();
+    let (stream, model, open_id) = (body["stream"] == true, body["model"].clone(), id.clone());
+    // Collect the routed chat answer and convert it, or keep the provider's error.
+    let answer = async move {
+        let resp = proxy_json(app, cfg, wire, true, None, chat).await;
+        let status = resp.status().as_u16();
+        let bytes = resp
+            .into_body()
+            .collect()
+            .await
+            .map(|c| c.to_bytes())
+            .unwrap_or_default();
+        match serde_json::from_slice::<Value>(&bytes) {
+            Ok(v) if status == 200 => Ok(rs::from_chat(&v, &body, &id, created)),
+            Ok(v) => Err((status, v)),
+            Err(_) => Err((
+                502,
+                json!({"error": {"message": "Free model returned an unreadable answer", "type": "upstream_error"}}),
+            )),
+        }
+    };
+    if !stream {
+        return match answer.await {
+            Ok(v) => json_resp(200, &v),
+            Err((status, v)) => json_resp(status, &v),
+        };
+    }
+    let mut seq = 0;
+    let (tx, rx) = mpsc::channel::<Bytes>(4);
+    let _ = tx
+        .send(Bytes::from(rs::opening(
+            &open_id, created, &model, &mut seq,
+        )))
+        .await;
+    tokio::spawn(async move {
+        let mut answer = Box::pin(answer);
+        // Free models can take a while; comments keep idle-timeout proxies open.
+        let out = loop {
+            tokio::select! {
+                r = &mut answer => break r,
+                _ = tokio::time::sleep(Duration::from_secs(15)) => {
+                    if tx.send(Bytes::from_static(b": keepalive\n\n")).await.is_err() { return; }
+                }
+            }
+        };
+        let bytes = match out {
+            Ok(v) => rs::closing(&v, &mut seq),
+            Err((status, v)) => {
+                let message = v["error"]["message"]
+                    .as_str()
+                    .unwrap_or("Free model request failed");
+                let mut b = Vec::new();
+                let code = if status == 429 {
+                    "rate_limit_exceeded"
+                } else {
+                    "server_error"
+                };
+                rs::event(
+                    &mut b,
+                    &mut seq,
+                    "response.failed",
+                    json!({"response": {"status": "failed", "error": {"code": code, "message": message}}}),
+                );
+                b
+            }
+        };
+        let _ = tx.send(Bytes::from(bytes)).await;
     });
     let s = futures_util::stream::unfold(rx, |mut rx| async move {
         rx.recv()

@@ -6,6 +6,9 @@ cargo fmt --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
 cargo build --locked
+python3 tests/code.py
+python3 scripts/build-code-client.py
+python3 dist/tako-code.pyz version
 python3 tests/dashboard.py
 python3 tests/auth.py
 python3 tests/installer.py

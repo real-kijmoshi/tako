@@ -16,7 +16,7 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  proc=spawn(path.join(root,'target/debug/tako'),['run'],{env:{...process.env,TAKO_HOME:fixture},stdio:'ignore'});
  for(let i=0;i<100;i++){try{const r=await fetch(base+'/health');if(r.ok)break;}catch{}await new Promise(r=>setTimeout(r,50));}
  const errors=[]; const logs=new VirtualConsole();logs.on('jsdomError',e=>errors.push(e.message));
- let copied='', downloaded=null, downloadName='', tokenLimits=null, modelFixture=null;
+ let copied='', downloaded=null, downloadName='', tokenLimits=null, tokenTraffic=null, modelFixture=null;
  const dom=new JSDOM(fs.readFileSync(root+'/src/web/index.html','utf8'),{
   url:base+'/ui',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:logs,
   beforeParse(w){
@@ -28,6 +28,7 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
     const response=await fetch(new URL(url,base),{...options,headers:options.headers});
     if(new URL(url,base).pathname==='/status' && tokenLimits!==null){
      const status=await response.json();status.token_limits=tokenLimits;
+     if(tokenTraffic)Object.assign(status,tokenTraffic);
      return {ok:response.ok,status:response.status,json:async()=>status};
     }
     return response;
@@ -46,14 +47,24 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  const w=dom.window,d=w.document,$=s=>d.querySelector(s),click=s=>{assert.ok($(s),s);$(s).click();};
  await wait(()=>$('#onboarding').textContent.includes('Connect a provider'));
  assert.equal(d.querySelectorAll('.setup-step').length,3);
- assert.equal($('#k-tokens-left').textContent,'Unknown');
+ assert.equal($('#k-tokens-left').textContent,'–');
+ await wait(()=>$('#token-limits').textContent.includes('Send a request'));
+ assert.match($('#token-limits').textContent,/Send a request/);
+ tokenLimits={};tokenTraffic={requests:{total:1,first_try:1,rescued:0,failed:0},token_targets:{'zai/glm-4.5-flash':{total_tokens:150}}};
+ await wait(()=>$('#k-tokens-left').textContent==='Not reported');
+ assert.match($('#k-tokens-left-sub').textContent,/Provider did not report/);
+ assert.match($('#token-limits').textContent,/zai: no token limit reported/);
+ assert.match($('#token-limits').textContent,/tokens used alone cannot determine what remains/);
  const observed=Math.floor(Date.now()/1000);
  tokenLimits={'old/model':{remaining:900,limit:1000,observed_at:observed-60},'new/model':{remaining:250,limit:1000,observed_at:observed}};
  await wait(()=>$('#k-tokens-left').textContent==='~250');
+ assert.equal($('#k-tokens-left').classList.contains('unreported'),false);
  assert.match($('#k-tokens-left-sub').textContent,/new\/model/);
  tokenLimits={'new/model':{remaining:0,limit:1000,observed_at:observed}};
  await wait(()=>$('#k-tokens-left').textContent==='~0');
- tokenLimits={};await wait(()=>$('#k-tokens-left').textContent==='Unknown');
+ tokenLimits={};await wait(()=>$('#k-tokens-left').textContent==='Not reported');
+ tokenTraffic=null;
+ await wait(()=>$('#k-tokens-left').textContent==='–');
  assert.equal(d.title,'tako dashboard');
  assert.equal($('.brand').textContent,'tako');
  assert.ok($('.brand .tako-mark'));
@@ -138,7 +149,7 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  for(const id of ['nous','modelscope','siliconflow','blockrun','novita','vikasit']){
   const guide=$(`[data-provider-guide="${id}"]`);assert.ok(guide,id);
   assert.ok(guide.closest('.provider-card').querySelector('.plogo svg image'),id+' icon');
-  guide.click();assert.equal(d.querySelectorAll('.provider-steps li').length,3);
+  guide.click();assert.equal(d.querySelectorAll('#dialog-body .provider-steps li').length,3);
   assert.ok($('#dialog-body a[target="_blank"]'));
   click('[data-guide-copy]');await wait(()=>copied.startsWith('http'));
   click('#dialog-cancel');
@@ -170,6 +181,28 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  $('#models-free').checked=false;$('#models-free').dispatchEvent(new w.Event('change',{bubbles:true}));
  assert.equal(d.querySelectorAll('.model-option').length,2);click('#dialog-cancel');
  assert.equal(errors.length,0,errors.join('\n'));
+ // The Code page pairs an outbound PC, queues real jobs and renders untrusted patch text safely.
+ click('[data-page="code"]');await wait(()=>$('#code-start').disabled);
+ assert.match($('#code-setup-commands').textContent,/tako-code.py setup --url http:/);
+ const codeKey=(await (await fetch(base+'/api/action',{method:'POST',headers:{'content-type':'application/json','x-tako':'1'},body:JSON.stringify({action:'key.create',name:'Code runner'})})).json()).key;
+ const codeRequest=async(endpoint,body)=>{const r=await fetch(base+endpoint,{method:'POST',headers:{'content-type':'application/json','x-tako':'1',Authorization:'Bearer '+codeKey},body:JSON.stringify(body)});assert.equal(r.status,200,await r.clone().text());return r.json();};
+ const pc={runner:'ui-pc',name:'My <PC>',projects:[{id:'app',name:'Local app'}],engines:['builtin']};
+ pc.runner_token=(await codeRequest('/v1/code/register',pc)).runner_token;
+ await codeRequest('/v1/code/register',pc);click('#code-refresh');await wait(()=>!$('#code-start').disabled);
+ assert.equal($('#code-runner').selectedOptions[0].textContent,'My <PC>');
+ assert.equal(d.querySelectorAll('#code-engine option').length,1);
+ $('#code-task').value='Implement <script>unsafe()</script>';
+ $('#code-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ await wait(()=>!!$('#code-cancel'));
+ assert.equal($('#code-detail script'),null);assert.match($('#code-detail').textContent,/Implement <script>/);
+ const lease=await codeRequest('/v1/code/poll',pc);assert.ok(lease.job.id);
+ await codeRequest('/v1/code/event',{...pc,job:lease.job.id,event:{phase:'ready',workers:[{id:'<img src=x>',title:'Worker <one>',phase:'done'}],diff:'+<script>unsafe()</script>',diff_truncated:true,review:'Review <text>',tests:[{command:['test'],exit_code:0,output:'actual output'}],apply_command:'python tako-code.py apply '+lease.job.id}});
+ click('#code-refresh');await wait(()=>!!$('#code-copy-apply'));
+ assert.equal($('#code-detail script'),null);assert.equal($('#code-detail img'),null);
+ assert.match($('#code-detail').textContent,/actual output/);assert.match($('#code-detail').textContent,/preview truncated/);
+ assert.equal($('#code-cancel'),null);click('#code-copy-apply');await wait(()=>copied.includes(' apply '+lease.job.id));
+ assert.equal(errors.length,0,errors.join('\n'));
+ await new Promise(resolve=>setTimeout(resolve,20));
  dom.window.close();
  const login=new JSDOM(fs.readFileSync(root+'/src/web/login.html','utf8'),{url:base+'/ui?session=expired#access',runScripts:'dangerously'});
  const ld=login.window.document;assert.equal(ld.title,'Sign in · tako');assert.ok(ld.querySelector('.brand .tako-mark'));assert.equal(ld.querySelector('#expired').hidden,false);
