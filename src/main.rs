@@ -6,6 +6,7 @@ mod daemon;
 mod dashboard;
 mod edit;
 mod failure;
+mod route;
 mod server;
 mod settings;
 mod stream;

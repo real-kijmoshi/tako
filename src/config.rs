@@ -95,7 +95,7 @@ impl Config {
         })
     }
 
-    fn alias(&self, model: &str) -> Option<&str> {
+    pub fn alias(&self, model: &str) -> Option<&str> {
         if let Some(t) = self.aliases.get(model) {
             return Some(t);
         }
@@ -112,6 +112,10 @@ impl Config {
 
     /// What the client asked for -> ordered list of targets to try.
     pub fn resolve(&self, model: &str) -> Result<Vec<Target>, String> {
+        // smart routes (`free:auto`, `any:coding`, ...) rank models per request; without one, plain order
+        if let Some(plan) = crate::route::plan(self, model, &serde_json::Value::Null, &|_| None) {
+            return plan.map(|p| p.targets);
+        }
         let name = self.alias(model).unwrap_or(model);
         if let Some(t) = self.lookup(name) {
             return Ok(t);
@@ -119,10 +123,10 @@ impl Config {
         if let Some(t) = self.default.as_deref().and_then(|d| self.lookup(d)) {
             return Ok(t);
         }
-        Err(format!("unknown model '{model}': use a combo name or provider/model (run `tako status` to see them)"))
+        Err(format!("unknown model '{model}': use a combo name, provider/model, or a smart route like free:auto (run `tako status` to see them)"))
     }
 
-    fn lookup(&self, name: &str) -> Option<Vec<Target>> {
+    pub fn lookup(&self, name: &str) -> Option<Vec<Target>> {
         if let Some(list) = self.combos.get(name) {
             return Some(list.iter().filter_map(|t| self.parse_target(t)).collect());
         }
@@ -212,15 +216,23 @@ pub fn parse(s: &str) -> Result<Config, String> {
         }
     }
     for (pat, t) in &c.aliases {
-        if !c.combos.contains_key(t) && c.parse_target(t).is_none() {
+        if !c.combos.contains_key(t)
+            && c.parse_target(t).is_none()
+            && crate::route::parse(t).is_none()
+        {
             return Err(format!(
-                "alias '{pat}': '{t}' is not a combo or provider/model"
+                "alias '{pat}': '{t}' is not a combo, provider/model, or smart route"
             ));
         }
     }
     if let Some(d) = &c.default {
-        if !c.combos.contains_key(d) && c.parse_target(d).is_none() {
-            return Err(format!("default '{d}' is not a combo or provider/model"));
+        if !c.combos.contains_key(d)
+            && c.parse_target(d).is_none()
+            && crate::route::parse(d).is_none()
+        {
+            return Err(format!(
+                "default '{d}' is not a combo, provider/model, or smart route"
+            ));
         }
     }
     c.warnings = warnings;

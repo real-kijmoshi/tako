@@ -131,6 +131,33 @@ each client. Public listeners require an admin password. The repository includes
 [Caddy](deploy/Caddyfile) and [systemd](deploy/tako.service) examples; follow the
 [VPS guide](docs/guide.md#host-on-a-vps) for setup and security details.
 
+## Smart routes
+
+Instead of a fixed combo, ask for a model by what you need: `pool:task`.
+
+| Pool | Uses | | Task | Picks models for |
+| --- | --- | --- | --- | --- |
+| `free` | free and local models | | `auto` | whatever the request looks like |
+| `local` | models on your machine | | `coding` | code, tool calls, agents |
+| `paid` | paid models | | `reasoning` | hard, step-by-step problems |
+| `any` | every model | | `fast` / `chat` | quick replies / everyday writing |
+| | | | `long` / `vision` | huge prompts / images |
+
+`free:auto` reads each request (images, very long prompts, thinking requests,
+tools or code, short questions) and picks the task. Candidates are the models in
+your combos plus suggested models for connected providers; they're ranked by
+what each is built for, then by how it's actually been answering, and the
+ranked list is the fallback order. Use a route anywhere a model name goes:
+
+```toml
+default = "free:auto"           # unknown model names land here
+[aliases]
+"claude-*" = "free:coding"      # Claude Code's requests go to the best free coder
+```
+
+The dashboard's Combos page shows each route's current top picks, and the
+live board shows where `auto` sent each request (e.g. `free:auto → coding`).
+
 ## Configuration and commands
 
 Settings live in `~/.config/tako/config.toml`. Use `TAKO_HOME` for another directory.

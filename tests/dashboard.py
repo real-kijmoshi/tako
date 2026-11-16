@@ -132,6 +132,27 @@ class Dashboard(unittest.TestCase):
         self.assertEqual(self.request('/status')[1]['ui'], metrics['ui'])
         self.request('/api/action', {'action': 'provider.remove', 'provider': 'slowmock'})
 
+    def test_smart_routes_pick_and_fall_back(self):
+        self.assertEqual(self.request('/api/action', {'action': 'provider.add', 'provider': 'routemock', 'base_url': f'http://127.0.0.1:{self.upstream.server_port}/v1', 'key': 'route-secret'})[0], 200)
+        self.assertEqual(self.request('/api/action', {'action': 'combo.save', 'name': 'routing', 'targets': ['routemock/first', 'routemock/second']})[0], 200)
+        models = [m['id'] for m in self.request('/v1/models', headers={'Authorization': 'Bearer router-secret'})[1]['data']]
+        self.assertIn('any:auto', models)
+        self.assertIn('any:coding', models)
+        overview = self.request('/api/overview')[1]
+        pool = next(p for p in overview['routes'] if p['pool'] == 'any')
+        self.assertEqual({t['name'] for t in pool['tasks']} >= {'any:auto', 'any:fast'}, True)
+        # routemock/first answers 429, so the route falls through to routemock/second
+        status, chat = self.request('/api/action', {'action': 'chat', 'model': 'any:auto', 'messages': [{'role': 'user', 'content': 'hello'}]})
+        self.assertEqual(status, 200, chat)
+        self.assertEqual(chat['reply'], 'Hello from fallback')
+        recent = [e for e in self.request('/status')[1]['recent'] if e['target'].startswith('routemock/')]
+        self.assertEqual(recent[-1]['model'], 'any:auto → fast')
+        self.assertEqual(self.request('/api/action', {'action': 'combo.default', 'name': 'free:auto'})[0], 200)
+        self.assertEqual(self.request('/api/overview')[1]['default'], 'free:auto')
+        self.assertEqual(self.request('/api/action', {'action': 'combo.default', 'name': 'routing'})[0], 200)
+        self.request('/api/action', {'action': 'combo.delete', 'name': 'routing'})
+        self.request('/api/action', {'action': 'provider.remove', 'provider': 'routemock'})
+
     def test_dashboard_workflow(self):
         self.assertEqual(self.request('/api/action', {'action': 'combo.delete', 'name': 'anything'}, {})[0], 403)
         self.assertEqual(self.request('/api/catalog', headers={'Host': 'evil.example'})[0], 403)

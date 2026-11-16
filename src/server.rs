@@ -244,6 +244,14 @@ impl App {
         }
     }
 
+    /// How a target has done since start: (ok, failed, average ms of successes).
+    fn health(&self, tag: &str) -> Option<(u64, u64, u64)> {
+        let m = self.metrics.lock().unwrap();
+        m.targets
+            .get(tag)
+            .map(|[ok, fail, ms]| (*ok, *fail, if *ok > 0 { ms / ok } else { 0 }))
+    }
+
     /// A request that never reached a provider because every target was benched.
     fn record_benched(&self, req: u64, model: &str, kind: Kind) {
         let mut m = self.metrics.lock().unwrap();
@@ -743,7 +751,7 @@ async fn ui(app: Arc<App>, method: &str, path: &str, req: Request<Incoming>) -> 
             .header("content-security-policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'")
             .body(Full::new(Bytes::from_static(UI_HTML.as_bytes())).map_err(|n: Infallible| match n {}).boxed_unsync())
             .unwrap(),
-        ("GET", "/api/overview") => json_resp(200, &overview(&app.cfg())),
+        ("GET", "/api/overview") => json_resp(200, &overview(&app.cfg(), &|t: &str| app.health(t))),
         ("POST", "/api/cooldowns/clear") => {
             let body = read_body(req).await.unwrap_or_default();
             let v: Value = serde_json::from_slice(&body).unwrap_or_default();
@@ -756,7 +764,7 @@ async fn ui(app: Arc<App>, method: &str, path: &str, req: Request<Incoming>) -> 
 }
 
 /// Config summary for the dashboard. Never includes keys.
-fn overview(cfg: &Config) -> Value {
+fn overview(cfg: &Config, health: crate::route::Health) -> Value {
     let providers: BTreeMap<&String, Value> = cfg
         .providers
         .iter()
@@ -767,8 +775,35 @@ fn overview(cfg: &Config) -> Value {
     json!({
         "listen": cfg.listen, "providers": providers, "combos": cfg.combos, "aliases": cfg.aliases,
         "default": cfg.default, "cooldown": cfg.cooldown, "long_cooldown": cfg.long_cooldown,
+        "routes": routes_overview(cfg, health),
         "auth": crate::auth::load().map(|c| c.api_required(cfg)).unwrap_or(true), "warnings": cfg.warnings,
     })
+}
+
+/// Smart routes with something to route to, and the models each would try first.
+fn routes_overview(cfg: &Config, health: crate::route::Health) -> Value {
+    use crate::route::{rank, POOLS, TASKS};
+    let pools: Vec<Value> = POOLS
+        .iter()
+        .filter_map(|(pool, about)| {
+            let tasks: Vec<Value> = TASKS
+                .iter()
+                .map(|(task, what)| {
+                    // auto picks per request; preview it with everyday chat
+                    let preview = if *task == "auto" { "chat" } else { task };
+                    let picks: Vec<String> = rank(cfg, pool, preview, health)
+                        .into_iter()
+                        .take(3)
+                        .map(|t| format!("{}/{}", t.provider, t.model))
+                        .collect();
+                    json!({"name": format!("{pool}:{task}"), "task": task, "about": what, "picks": picks})
+                })
+                .collect();
+            let empty = tasks.iter().all(|t| t["picks"].as_array().is_none_or(Vec::is_empty));
+            (!empty).then(|| json!({"pool": pool, "about": about, "tasks": tasks}))
+        })
+        .collect();
+    json!(pools)
 }
 
 fn authorized(h: &HeaderMap, key: &str) -> bool {
@@ -786,8 +821,11 @@ fn models(cfg: &Config) -> Value {
             .map(String::as_str),
     );
     ids.extend(cfg.combos.values().flatten().map(String::as_str));
-    let data: Vec<Value> = ids
+    let routes = crate::route::available(cfg);
+    let data: Vec<Value> = routes
         .iter()
+        .map(String::as_str)
+        .chain(ids.iter().copied())
         .map(|id| json!({"id": id, "object": "model", "created": 0, "owned_by": "tako"}))
         .collect();
     json!({"object": "list", "data": data})
@@ -824,9 +862,16 @@ async fn proxy(
     let Some(model) = body["model"].as_str().map(String::from) else {
         return error(wire, 400, "invalid_request_error", "missing \"model\"");
     };
-    let targets = match cfg.resolve(&model) {
-        Ok(t) => t,
-        Err(e) => return error(wire, 404, "not_found_error", &e),
+    // A smart route ranks models for this request; from here on the request is shown by
+    // its route (e.g. `free:auto → coding`) so the dashboard says which way it went.
+    let health = |tag: &str| app.health(tag);
+    let (targets, model) = match crate::route::plan(&cfg, &model, &body, &health) {
+        Some(Ok(plan)) => (plan.targets, plan.label),
+        Some(Err(e)) => return error(wire, 404, "not_found_error", &e),
+        None => match cfg.resolve(&model) {
+            Ok(t) => (t, model),
+            Err(e) => return error(wire, 404, "not_found_error", &e),
+        },
     };
     let stream = body["stream"] == true;
     let policy = Policy {

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Add smart routes: model names like `free:auto`, `free:coding` or `any:reasoning` that rank your models for each request by task fit and live health, with the ranking as the fallback order.
+- Let `auto` routes pick a task from the request: images, long prompts, thinking requests, tools or code, and short questions.
+- Accept smart routes as the default and as alias targets; list them in `/v1/models`, the playground, and a Smart routes card on the Combos page.
+- Show where each routed request went on the live board (e.g. `free:auto → coding`).
+- Make the live routing map show traffic at a glance: glowing and flowing lines, station stats, requests in flight, and a ticker of the latest requests.
+
 ## 0.1.3 — 2026-11-15
 
 - Show requests on the dashboard as soon as they arrive, including in-flight progress.
