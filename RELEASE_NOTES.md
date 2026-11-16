@@ -1,27 +1,23 @@
-# Tako 0.1.8: Tako Code without Python
+# Tako 0.1.9: install, type, swarm
 
-Tako Code, the PC client for coding swarms added in 0.1.7, is now a single executable. Download it, make it executable, run it. No Python install needed; Git is still required.
-
-| Your PC | Download |
-| --- | --- |
-| macOS, Apple silicon | `tako-code-macos-aarch64` |
-| macOS, Intel | `tako-code-macos-x86_64` |
-| Linux, x86_64 | `tako-code-linux-x86_64` |
-| Linux, ARM64 | `tako-code-linux-aarch64` |
-| Windows, x86_64 | `tako-code-windows-x86_64.exe` |
+Tako Code is now a terminal app. Install it, run it in your project, type what you want built, and it spins up a swarm of Claude Code agents.
 
 ```sh
-curl -fL https://github.com/real-kijmoshi/tako/releases/latest/download/tako-code-macos-aarch64 -o tako-code && chmod +x tako-code
-./tako-code setup --url https://your-vps.example.com
-./tako-code project add /path/to/repo --test-json '["npm","test"]'
-./tako-code run
+curl -fsSL https://github.com/real-kijmoshi/tako/releases/latest/download/install-code.sh | sh
+cd ~/code/my-app
+tako-code
 ```
 
-- The **Code swarms** page detects your system and shows the right download and setup commands (PowerShell on Windows).
-- `tako code` runs the executable when it is next to `tako` or on PATH.
-- The executables are unsigned. Download with `curl` to avoid macOS quarantine, or run `xattr -d com.apple.quarantine tako-code` after a browser download. Checksums are in `SHA256SUMS`.
-- `tako-code.pyz` is still published for anyone who prefers Python 3.11+.
+Windows (PowerShell): `irm https://github.com/real-kijmoshi/tako/releases/latest/download/install-code.ps1 | iex`
 
-Workers can be the built-in agent, Claude Code, Codex CLI or OpenCode; every model request goes through your VPS to free models only. See the [Tako Code guide](https://github.com/real-kijmoshi/tako/blob/v0.1.8/code/README.md).
+- **No setup steps.** The first run asks for your Tako server URL and a client key, once. The Git repository you are in is used automatically.
+- **Type a task, get a swarm.** Agents default to Claude Code when it is installed (Codex, OpenCode and the built-in agent also work; change with `/engine`). Pick how many with `/agents` (1–6).
+- **Watch it live.** Each agent's row shows what it is editing or running. When it finishes you get the changed files, test results and a model review.
+- **Apply when you're happy.** `/apply` fast-forwards your branch; `/diff` shows the changes; Ctrl+C cancels. Nothing is pushed.
+- **Still works with the web panel.** Terminal swarms appear on the Code swarms page, and swarms started there run on your PC while `tako-code` is open.
+- **One-line installers** verify the download checksum and put `tako-code` on your PATH.
+- Fixed agents occasionally failing to start when several Git worktrees were created at once.
 
-Update the VPS with `tako update`. Updating restarts a running router and can interrupt active requests; configuration and keys persist.
+Every model request still goes through your server to free models only. Using Claude Code or Codex as the agent does not give free access to Anthropic or OpenAI models; the models come from the free providers connected to your Tako server.
+
+Update the server with `tako update`.

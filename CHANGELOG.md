@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.9 — 2026-11-16
+
+- Run `tako-code` with no arguments for an interactive swarm screen: the first run asks for the server URL and client key, the Git repository in the current directory is used automatically, and you type tasks instead of using the web panel. Agents default to Claude Code when it is installed.
+- Show each agent live while a swarm runs (what it is editing or running), then a summary with changed files, test results and the model review. `/apply`, `/diff`, `/agents`, `/engine`, `/tests` and `/project` work from the same prompt; Ctrl+C cancels.
+- Record swarms typed in the terminal on the server, so the web panel lists them; swarms started from the web panel still run on the PC while the terminal screen is open.
+- Add one-line installers, `install-code.sh` and `install-code.ps1`, published with each release. They verify the checksum and put `tako-code` on your PATH.
+- Fix agents occasionally failing to start when several Git worktrees were created at the same moment.
+
 ## 0.1.8 — 2026-11-16
 
 - Ship Tako Code as standalone executables for macOS (Apple silicon, Intel), Linux (x86_64, ARM64) and Windows (x86_64). No Python is needed to run it.

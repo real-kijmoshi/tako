@@ -127,6 +127,7 @@ h2{font:normal clamp(34px,4vw,50px)/1.1 var(--serif);letter-spacing:-.035em;marg
 .os-links a{border:1px solid var(--line-2);background:var(--card);padding:7px 11px;border-radius:7px;font-size:13px}
 .os-links a:hover{border-color:var(--blue);color:var(--blue)}
 .code-get code{font:13px var(--mono);background:var(--chip);padding:5px 9px;border-radius:6px;overflow-wrap:anywhere}
+.section-heading code.inline{font:14px var(--mono);background:var(--chip);padding:1px 6px;border-radius:5px;color:var(--ink)}
 .code-get .text-link{margin-top:6px}
 #swarm .agent{display:flex;gap:10px}
 #swarm .agent .engine{color:var(--term-dim);min-width:8.5em}

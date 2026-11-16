@@ -80,6 +80,15 @@ jobs:
         run: |
           test -f "dist/${{ matrix.asset }}"
           "dist/${{ matrix.asset }}" version
+      - if: runner.os == 'Windows'
+        name: Check the PowerShell installer parses
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/install-code.ps1", [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) { $errors; exit 1 }
+      - if: runner.os != 'Windows'
+        run: sh -n install-code.sh
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}
@@ -101,6 +110,7 @@ jobs:
           test "$(find dist -maxdepth 1 -type f -name 'tako-*' ! -name 'tako-code*' | wc -l)" -eq 4
           test "$(find dist -maxdepth 1 -type f -name 'tako-code-*' | wc -l)" -eq 5
           chmod 755 dist/tako-code-macos-* dist/tako-code-linux-*
+          cp install-code.sh install-code.ps1 dist/
           python3 scripts/build-code-client.py
           python3 dist/tako-code.pyz version
           cd dist
@@ -112,4 +122,6 @@ jobs:
           body_path: RELEASE_NOTES.md
           files: |
             dist/tako-*
+            dist/install-code.sh
+            dist/install-code.ps1
             dist/SHA256SUMS

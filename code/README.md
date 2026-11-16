@@ -1,46 +1,71 @@
 # Tako Code
 
-A separate PC runner for coding swarms controlled from the Tako web UI. Repositories, Git worktrees, worker processes and tests run on your PC. Your VPS queues jobs and routes model requests. The runner connects outward over HTTPS; no PC port needs exposing.
+A swarm of coding agents on your PC. Type what you want built; Tako Code splits the work, runs several Claude Code (or Codex, OpenCode, built-in) agents at once, each in its own Git worktree, merges their work, runs your tests and asks a model to review it. Every model request goes through your Tako server to free models only. Repositories, worktrees, agents and tests stay on your PC; it connects outward over HTTPS, so no PC port needs opening.
 
-Tako Code is a single executable for macOS (Apple silicon and Intel), Linux (x86_64 and ARM64) and Windows (x86_64). No Python is needed; Git is. The **Code swarms** page on your VPS shows the download and setup commands for your PC. If you already have Tako on the PC, put `tako-code` next to `tako` or on your PATH and `tako code` runs it.
+## Install
 
-## Setup
-
-Update Tako on the VPS to a version with Code swarms. Connect eligible free model providers there and create a Tako client key under **Access & keys**. Provider keys stay on the VPS.
-
-On the PC, using your own URL (pick the asset for your system: `tako-code-macos-aarch64`, `tako-code-macos-x86_64`, `tako-code-linux-x86_64`, `tako-code-linux-aarch64`):
+macOS and Linux:
 
 ```sh
-curl -fL https://github.com/real-kijmoshi/tako/releases/latest/download/tako-code-macos-aarch64 -o tako-code
-chmod +x tako-code
-./tako-code setup --url https://tako.example.com
-# Enter the Tako client key at the hidden prompt.
-./tako-code project add /path/to/repository --test-json '["npm","test"]'
-./tako-code run
+curl -fsSL https://github.com/real-kijmoshi/tako/releases/latest/download/install-code.sh | sh
 ```
 
-On Windows (PowerShell):
+Windows (PowerShell):
 
 ```powershell
-Invoke-WebRequest https://github.com/real-kijmoshi/tako/releases/latest/download/tako-code-windows-x86_64.exe -OutFile tako-code.exe
-.\tako-code.exe setup --url https://tako.example.com
+irm https://github.com/real-kijmoshi/tako/releases/latest/download/install-code.ps1 | iex
 ```
 
-Downloading with `curl` avoids macOS Gatekeeper's quarantine. If you download in a browser, macOS may refuse to open the unsigned file; run `xattr -d com.apple.quarantine tako-code` once. Windows SmartScreen may also warn about an unsigned download. The executables are built from `code/tako_code.py` by the release workflow; checksums are in `SHA256SUMS`. Prefer Python? `tako-code.pyz` (release) and `tako-code.py` (Code swarms page) are the same client for Python 3.11+.
+The installer verifies the download against the release's `SHA256SUMS` and puts a single `tako-code` executable on your PATH (`~/.local/bin`, or `%LOCALAPPDATA%\Programs\tako` on Windows). No Python is needed. Git is. Install [Claude Code](https://claude.com/claude-code) to use Claude Code agents; without it, agents fall back to Codex, OpenCode or the built-in agent.
 
-Use a Windows repository path on Windows. Shell quoting for `--test-json` varies; the value must be a JSON argv array. You can omit tests, but the UI will clearly show that none were configured. Repeat `--test-json` for up to eight commands. Commands run directly, without a shell, with a five-minute limit each. Only configure commands you trust to execute generated code locally.
-
-The repository needs an initial commit and a clean checkout when a job begins. `project add` is the local allowlist: a web job cannot choose arbitrary filesystem paths. Only project IDs and display names are registered with the VPS. Restart the runner after changing projects or installed engines.
-
-Open **Code swarms** in the hosted web UI, select the PC, project, engine and 1–6 workers, and describe the task. The planner can use fewer workers when work cannot be split safely. Each worker gets an independent branch and worktree. The coordinator combines commits on a review branch, runs configured tests and requests a model review. Conflicts, failed tests and interrupted jobs preserve worktrees for inspection.
-
-Review the patch, actual test output and model review in the UI. To apply a ready job on the PC:
+## Use
 
 ```sh
-./tako-code apply JOB_ID
+cd ~/code/my-app
+tako-code
 ```
 
-Apply works while the runner remains connected. It requires the original checkout to be clean and still at the starting commit, and only fast-forwards it. It does not push or deploy. Changed branches require a manual merge instead. The complete patch is also saved under `~/.config/tako-code/jobs/JOB_ID/changes.patch`; the web preview is limited to 50,000 characters.
+The first time, it asks for your Tako server URL and a client key (create one under **Access & keys** in the web panel). Then type what you want:
+
+```
+tako ❯ add rate-limit headers to the API and tests for them
+▸ add rate-limit headers to the API and tests for them
+  Claude Code × 3 · working · 1m 12s
+
+  ✓ 1  Header middleware            done
+  ⠹ 2  Config option                Edit src/config.rs
+  ⠼ 3  Integration tests            $ cargo test
+
+✓ Ready for review  5 files changed, 120 insertions(+) · 1 test command(s) passed
+  /apply puts the changes on your branch · /diff shows them · or type a new task
+```
+
+| Command | What it does |
+| --- | --- |
+| *any text* | Start a swarm for that task |
+| `/agents N` | Agents per swarm, 1–6 (default 3) |
+| `/engine NAME` | `claude`, `codex`, `opencode` or `builtin` (default: Claude Code if installed) |
+| `/tests CMD` | A command that checks the merged result, e.g. `/tests npm test` (`/tests off` to clear) |
+| `/apply` | Fast-forward your branch to the reviewed result. Nothing is pushed. |
+| `/diff` | Show the swarm's changes |
+| `/project PATH` | Work in another Git repository |
+| `/status`, `/help`, `/quit` | |
+
+Ctrl+C cancels a running swarm. Your repository must have a commit and no uncommitted changes when a swarm starts; agents start from your last commit and your checkout is untouched until `/apply`.
+
+While `tako-code` is open, the **Code swarms** page of your web panel shows this PC. Swarms you start in the terminal appear there too, and swarms started from the web run on your PC (press Enter in the terminal to watch). To serve the web panel without the interactive screen, run `tako-code run`. If you have Tako on the PC as well, `tako code` runs the same program.
+
+## More details
+
+Tests run directly, without a shell, with a five-minute limit each. Only configure commands you trust to execute generated code locally. `tako-code project add PATH --test-json '["npm","test"]'` registers a repository and its tests without the interactive screen; repeat `--test-json` for up to eight commands.
+
+The repository is the local allowlist: a web job can only target repositories you opened in `tako-code` or registered with `project add`. Only project IDs and display names are sent to the server.
+
+The planner can use fewer agents when work cannot be split safely. Each agent gets an independent branch and worktree. Conflicts, failed tests and interrupted jobs preserve worktrees for inspection. From the web panel, copy the apply command (`tako-code apply JOB_ID`) instead of using `/apply`.
+
+`apply` requires the original checkout to be clean and still at the starting commit, and only fast-forwards it. It does not push or deploy. Changed branches require a manual merge instead. The complete patch is saved under `~/.config/tako-code/jobs/JOB_ID/changes.patch`; the web preview is limited to 50,000 characters.
+
+Prefer to download by hand? Each executable is attached to the release (`tako-code-macos-aarch64`, `tako-code-macos-x86_64`, `tako-code-linux-x86_64`, `tako-code-linux-aarch64`, `tako-code-windows-x86_64.exe`). Browser downloads are quarantined by macOS because the files are unsigned; run `xattr -d com.apple.quarantine tako-code` once. Windows SmartScreen may also warn. `tako-code.pyz` (release) and `tako-code.py` (Code swarms page) are the same client for Python 3.11+.
 
 ## Engines and model access
 

@@ -192,8 +192,50 @@ impl Hub {
             r["engines"] = json!(engines);
             r["name"] = json!(text(v, "name", 100)?);
         }
+        // Snapshot what this runner may use before borrowing the job list.
+        let (projects, engines) = (r["projects"].clone(), r["engines"].clone());
         let result = match action {
             "register" => json!({"ok":true,"protocol":1}),
+            // A job typed in the PC's terminal UI: created already leased to that PC so
+            // the web UI shows it alongside jobs queued from the browser.
+            "submit" => {
+                if s.jobs.len() >= 200 {
+                    return Err("Archive old local jobs before queuing more than 200 jobs".into());
+                }
+                let busy = s.jobs.values().any(|j| {
+                    j["runner"] == id
+                        && matches!(
+                            j["phase"].as_str(),
+                            Some("planning" | "working" | "integrating" | "reviewing")
+                        )
+                });
+                if busy {
+                    return Err("This PC is already running a swarm".into());
+                }
+                let project = text(v, "project", 64)?;
+                if !projects
+                    .as_array()
+                    .is_some_and(|a| a.iter().any(|p| p["id"] == project))
+                {
+                    return Err("Project was not registered locally on this PC".into());
+                }
+                let engine = text(v, "engine", 24)?;
+                if !engines
+                    .as_array()
+                    .is_some_and(|a| a.iter().any(|e| e == engine))
+                {
+                    return Err("Engine is not installed on this PC".into());
+                }
+                let workers = v["workers"]
+                    .as_u64()
+                    .filter(|n| (1..=6).contains(n))
+                    .ok_or("Choose 1–6 agents")?;
+                let task = text(v, "task", 16000)?;
+                let job_id = crate::auth::secret()[..16].to_string();
+                let job = json!({"id":job_id,"runner":id,"project":project,"engine":engine,"workers_requested":workers,"task":task,"phase":"planning","created":now(),"updated":now(),"events":[],"workers":[],"cancel":false,"free_only":true,"source":"terminal"});
+                s.jobs.insert(job_id, job.clone());
+                json!({"job":job})
+            }
             "recover" => {
                 for job in s.jobs.values_mut().filter(|j| j["runner"] == id) {
                     if matches!(
@@ -365,6 +407,50 @@ mod tests {
             fs::metadata(path).unwrap().permissions().mode() & 0o777,
             0o600
         );
+        fs::remove_dir_all(folder).unwrap();
+    }
+
+    #[test]
+    fn terminal_submit_is_leased_scoped_and_exclusive() {
+        let folder = std::env::temp_dir().join(format!("tako-code-{}", crate::auth::secret()));
+        fs::create_dir_all(&folder).unwrap();
+        let hub = Hub::open(folder.join("state.json")).unwrap();
+        let first = hub
+            .runner("register", &json!({"runner":"pc1","name":"PC"}))
+            .unwrap();
+        let pc = json!({"runner":"pc1","runner_token":first["runner_token"],"name":"PC","projects":[{"id":"repo1","name":"App"}],"engines":["builtin","claude"]});
+        hub.runner("register", &pc).unwrap();
+        let submit = |extra: Value| {
+            let mut v = pc.clone();
+            v.as_object_mut()
+                .unwrap()
+                .extend(extra.as_object().unwrap().clone());
+            hub.runner("submit", &v)
+        };
+        assert!(
+            submit(json!({"project":"other","engine":"claude","workers":3,"task":"x"})).is_err()
+        );
+        assert!(
+            submit(json!({"project":"repo1","engine":"codex","workers":3,"task":"x"})).is_err()
+        );
+        assert!(
+            submit(json!({"project":"repo1","engine":"claude","workers":9,"task":"x"})).is_err()
+        );
+        let mut forged = pc.clone();
+        forged["runner_token"] = json!("bad");
+        forged["project"] = json!("repo1");
+        assert!(hub.runner("submit", &forged).is_err());
+        let job =
+            submit(json!({"project":"repo1","engine":"claude","workers":3,"task":"Add tests"}))
+                .unwrap()["job"]
+                .clone();
+        assert_eq!(job["phase"], "planning");
+        assert_eq!(job["source"], "terminal");
+        assert!(hub.runner("poll", &pc).unwrap()["job"].is_null());
+        assert!(
+            submit(json!({"project":"repo1","engine":"claude","workers":1,"task":"y"})).is_err()
+        );
+        assert_eq!(hub.overview().unwrap()["jobs"][0]["id"], job["id"]);
         fs::remove_dir_all(folder).unwrap();
     }
 }

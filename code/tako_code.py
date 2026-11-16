@@ -25,7 +25,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.1.8"
+VERSION = "0.1.9"
 TERMINAL = {"ready", "needs_attention", "failed", "cancelled", "applied"}
 HOME = Path(os.environ.get("TAKO_CODE_HOME", Path.home() / ".config" / "tako-code"))
 DENIED = {".git", ".env", ".env.local", ".env.production", ".ssh", ".aws", ".npmrc", ".pypirc"}
@@ -415,9 +415,12 @@ class Swarm:
             raise CodeError("Keep TAKO_CODE_HOME outside the registered repository")
         self.folder = HOME / "jobs" / job["id"]
         self.folder.mkdir(parents=True, exist_ok=True, mode=0o700)
-        self.state = {"id": job["id"], "runner": api.c["runner"], "repo": str(self.repo), "phase": "planning", "workers": []}
+        self.state = {"id": job["id"], "runner": api.c["runner"], "repo": str(self.repo), "phase": "planning", "workers": [],
+                      "task": job.get("task", ""), "engine": job.get("engine", "")}
         self.lock = threading.RLock()
         self.pending = []
+        self.listener = None  # the terminal UI watches events here
+        self.thread = None
 
     def event(self, message="", **values):
         with self.lock:
@@ -428,6 +431,11 @@ class Swarm:
             save(self.folder / "state.json", self.state)
             event = {"message": message, **values}
             self.pending.append(event)
+            if self.listener:
+                try:
+                    self.listener(message, values)
+                except Exception:
+                    pass  # a display problem must never stop the swarm
             self.flush()
 
     def flush(self):
@@ -465,7 +473,9 @@ class Swarm:
     def worker(self, index, task, base):
         branch = f"tako-code/{self.job['id']}/worker-{index}"
         root = self.folder / f"worker-{index}"
-        git(self.repo, "worktree", "add", "-b", branch, str(root), base)
+        # Git's worktree metadata is not safe for concurrent `worktree add` on one repo.
+        with self.lock:
+            git(self.repo, "worktree", "add", "-b", branch, str(root), base)
         worker = {"id": index, "title": task["title"][:100], "phase": "working", "branch": branch}
         with self.lock:
             self.state["workers"].append(worker)
@@ -595,75 +605,127 @@ def runner_lock():
     finally:
         f.close()
 
+class Runner:
+    """The PC's connection to the VPS: polls for web jobs and runs one swarm at a time."""
+
+    def __init__(self, c):
+        self.c, self.api = c, Api(c)
+        self.active = None
+        self.lock = threading.RLock()
+        self.stop = threading.Event()
+        self.on_job = None  # called with a swarm started from the web panel
+        self.error = None
+
+    def connect(self):
+        cap = self.api.request("/v1/code/capabilities")
+        if cap.get("protocol") != 1 or not cap.get("free_gateway"):
+            raise CodeError("Update your VPS Tako server; its free-only Code gateway is missing")
+        register(self.api, self.c)
+        self.api.runner("recover")
+        for local in (HOME / "jobs").glob("*/state.json"):
+            state = load(local)
+            if state.get("runner") != self.c["runner"]:
+                continue
+            if state.get("phase") in TERMINAL:
+                try:
+                    self.api.runner("event", job=state["id"], event={k: v for k, v in state.items() if k not in {"id", "repo", "runner", "task", "engine"}})
+                except CodeError:
+                    pass
+            else:
+                state["phase"] = "failed"
+                state["error"] = "Runner was interrupted; worktrees are preserved"
+                save(local, state)
+
+    def busy(self):
+        a = self.active
+        return a is not None and (a.thread.is_alive() or bool(a.pending))
+
+    def _start(self, job, project):
+        swarm = Swarm(self.api, job, project, threading.Event())
+        swarm.thread = threading.Thread(target=swarm.run, daemon=False)
+        self.active = swarm
+        swarm.thread.start()
+        return swarm
+
+    def tick(self):
+        """One poll of the VPS. Returns a swarm if a web job was started."""
+        with self.lock:
+            response = self.api.runner("poll", name=self.c["name"], projects=projects(self.c),
+                                       engines=available_engines(), busy=self.busy())
+            if self.active:
+                if self.active.job["id"] in response.get("cancel", []):
+                    self.active.cancel.set()
+                self.active.flush()
+                if not self.busy():
+                    self.active = None
+            job = response.get("job")
+            if not job:
+                return None
+            # Job ids become local folder and branch names; never trust the VPS with paths.
+            if not re.fullmatch(r"[a-f0-9]{16}", str(job.get("id", ""))):
+                raise CodeError("VPS sent an invalid job id; ignoring it")
+            project = self.c.get("projects", {}).get(job.get("project"))
+            if not project:
+                self.api.runner("event", job=job["id"], event={"phase": "failed", "message": "Project is not registered on this PC"})
+            elif self.active:
+                self.api.runner("event", job=job["id"], event={"phase": "failed", "message": "Runner is already working on another job"})
+            else:
+                try:
+                    return self._start(job, project)
+                except (CodeError, OSError) as e:
+                    self.api.runner("event", job=job["id"], event={"phase": "failed", "message": self.api.redact(str(e))[:2000]})
+            return None
+
+    def submit(self, project_id, engine, workers, task):
+        """Start a swarm typed on this PC; the VPS records it so the web UI shows it too."""
+        with self.lock:
+            if self.busy():
+                raise CodeError("A swarm is already running; wait for it or cancel it first")
+            # Re-announce projects and engines so a just-added repository is accepted.
+            self.api.runner("register", name=self.c["name"], projects=projects(self.c), engines=available_engines())
+            job = self.api.runner("submit", project=project_id, engine=engine, workers=workers, task=task)["job"]
+            if not re.fullmatch(r"[a-f0-9]{16}", str(job.get("id", ""))):
+                raise CodeError("VPS sent an invalid job id")
+            return self._start(job, self.c["projects"][project_id])
+
+    def background(self):
+        while not self.stop.wait(2):
+            try:
+                swarm = self.tick()
+                self.error = None
+                if swarm and self.on_job:
+                    self.on_job(swarm)
+            except CodeError as e:
+                self.error = str(e)
+
+    def shutdown(self, wait=190):
+        self.stop.set()
+        a = self.active
+        if a and a.thread.is_alive():
+            a.cancel.set()
+            a.thread.join(timeout=wait)
+        if a:
+            a.flush()
+
 def run(c, once=False):
-    api = Api(c)
-    cap = api.request("/v1/code/capabilities")
-    if cap.get("protocol") != 1 or not cap.get("free_gateway"):
-        raise CodeError("Update your VPS Tako server; its free-only Code gateway is missing")
-    register(api, c)
-    api.runner("recover")
-    for local in (HOME / "jobs").glob("*/state.json"):
-        state = load(local)
-        if state.get("runner") != c["runner"]:
-            continue
-        if state.get("phase") in TERMINAL:
-            try:
-                api.runner("event", job=state["id"], event={k:v for k,v in state.items() if k not in {"id","repo","runner"}})
-            except CodeError:
-                pass
-        else:
-            state["phase"] = "failed"
-            state["error"] = "Runner was interrupted; worktrees are preserved"
-            save(local, state)
-    print("Tako Code connected to " + api.url + ". Keep this terminal running; use the VPS Code tab.", flush=True)
-    stop = threading.Event()
-    active = None
-    thread = None
+    runner = Runner(c)
+    runner.connect()
+    print("Tako Code connected to " + runner.api.url + ". Keep this terminal running; start swarms from the web panel.", flush=True)
     try:
-        while not stop.is_set():
+        while True:
             try:
-                response = api.runner("poll", name=c["name"], projects=projects(c), engines=available_engines(), busy=active is not None)
-                if active:
-                    if active.job["id"] in response.get("cancel", []):
-                        active.cancel.set()
-                    active.flush()
-                    if thread and not thread.is_alive() and not active.pending:
-                        active.flush()
-                        active = None
-                        thread = None
-                        if once:
-                            return
-                if response.get("job"):
-                    job = response["job"]
-                    # Job ids become local folder and branch names; never trust the VPS with paths.
-                    if not re.fullmatch(r"[a-f0-9]{16}", str(job.get("id", ""))):
-                        raise CodeError("VPS sent an invalid job id; ignoring it")
-                    project = c.get("projects", {}).get(job.get("project"))
-                    if not project:
-                        api.runner("event", job=job["id"], event={"phase": "failed", "message": "Project is not registered on this PC"})
-                    elif active:
-                        api.runner("event", job=job["id"], event={"phase": "failed", "message": "Runner is already working on another job"})
-                    else:
-                        try:
-                            active = Swarm(api, job, project, threading.Event())
-                        except (CodeError, OSError) as e:
-                            api.runner("event", job=job["id"], event={"phase": "failed", "message": api.redact(str(e))[:2000]})
-                        else:
-                            thread = threading.Thread(target=active.run, daemon=False)
-                            thread.start()
-                if once and not active:
-                    return
+                runner.tick()
             except CodeError as e:
                 print(str(e), file=sys.stderr, flush=True)
                 if once:
                     raise
-            stop.wait(2)
+            if once and not runner.active:
+                return
+            runner.stop.wait(2)
     except KeyboardInterrupt:
-        if active:
-            active.cancel.set()
+        if runner.active and runner.active.thread.is_alive():
             print("Stopping workers; waiting for any current model request to finish…", flush=True)
-        if thread:
-            thread.join(timeout=190)
+        runner.shutdown()
         print("Runner stopped; worktrees and local job state are preserved.")
 
 def apply(job_id):
@@ -688,9 +750,366 @@ def apply(job_id):
     print("Applied " + state["branch"])
 
 
+# ---- terminal UI: `tako-code` with no arguments ---------------------------------
+
+ENGINE_NAMES = {"claude": "Claude Code", "codex": "Codex", "opencode": "OpenCode", "builtin": "Built-in agent"}
+ENGINE_ORDER = ["claude", "codex", "opencode", "builtin"]
+SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+def paint(code, text):
+    return f"\x1b[{code}m{text}\x1b[0m" if USE_COLOR else text
+
+USE_COLOR = sys.stdout.isatty() and "NO_COLOR" not in os.environ
+
+def enable_terminal():
+    if os.name == "nt":
+        os.system("")  # turns on ANSI escape handling in the Windows console
+    with contextlib.suppress(AttributeError, ValueError):
+        sys.stdout.reconfigure(errors="replace")
+
+def short_path(value):
+    parts = Path(str(value)).parts
+    return str(Path(*parts[-2:])) if len(parts) > 2 else str(value)
+
+def first_line(text, limit=120):
+    for line in str(text).splitlines():
+        if line.strip():
+            return line.strip()[:limit]
+    return ""
+
+def activity(line):
+    """Turn a worker log line (plain text or an agent CLI's JSON event) into a short status."""
+    line = str(line).strip()
+    if not line:
+        return None
+    if not line.startswith("{"):
+        return first_line(line)
+    try:
+        v = json.loads(line)
+    except ValueError:
+        return first_line(line)
+    if not isinstance(v, dict):
+        return None
+    kind = v.get("type")
+    if kind == "assistant":  # Claude Code stream-json
+        for part in (v.get("message") or {}).get("content") or []:
+            if part.get("type") == "tool_use":
+                args = part.get("input") or {}
+                target = args.get("file_path") or args.get("path") or args.get("pattern") or args.get("command") or ""
+                return f"{part.get('name') or 'tool'} {short_path(target)}".strip()
+            if part.get("type") == "text" and str(part.get("text", "")).strip():
+                return first_line(part["text"])
+        return None
+    if kind == "result":
+        return "stopped with an error" if v.get("is_error") else "finished"
+    item = v.get("item")
+    if isinstance(item, dict):  # Codex exec --json
+        it = item.get("type")
+        if it == "command_execution":
+            return "$ " + first_line(item.get("command", ""), 100)
+        if it == "file_change":
+            return "edited " + ", ".join(short_path(c.get("path", "")) for c in item.get("changes", []) if isinstance(c, dict))
+        if it in ("agent_message", "reasoning") and item.get("text"):
+            return first_line(item["text"])
+        return None
+    part = v.get("part") if isinstance(v.get("part"), dict) else {}
+    if kind == "tool_use" or part.get("type") == "tool":  # OpenCode --format json
+        args = (part.get("state") or {}).get("input") or {}
+        return f"{part.get('tool', 'tool')} {short_path(args.get('filePath') or args.get('path') or '')}".strip()
+    if kind == "text" and part.get("text"):
+        return first_line(part["text"])
+    return None
+
+def clip(text, width):
+    text = str(text)
+    return text if len(text) <= width else text[:max(0, width - 1)] + "…"
+
+def elapsed(seconds):
+    seconds = int(seconds)
+    return f"{seconds // 60}m {seconds % 60:02d}s" if seconds >= 60 else f"{seconds}s"
+
+def board(state, acts, notes, since, frame=0, width=80, running=True):
+    """Lines for the live swarm view. Pure, so it can be tested without a terminal."""
+    width = max(40, width) - 1
+    phase = state.get("phase", "planning")
+    engine = ENGINE_NAMES.get(state.get("engine"), state.get("engine") or "agents")
+    workers = state.get("workers") or []
+    head = f"{engine} × {len(workers)}" if workers else engine
+    lines = [paint("1", clip("▸ " + state.get("task", ""), width)),
+             paint("2", clip(f"  {head} · {phase.replace('_', ' ')} · {elapsed(time.monotonic() - since)}", width)), ""]
+    if not workers:
+        lines.append(f"  {paint('36', SPINNER[frame % len(SPINNER)])} Planning: splitting the task between agents…")
+    for w in workers:
+        p = w.get("phase")
+        mark, tint = {"done": ("✓", "32"), "no_changes": ("–", "2"), "failed": ("✗", "31"),
+                      "cancelled": ("⊘", "33")}.get(p, (SPINNER[(frame + w.get("id", 0)) % len(SPINNER)], "36"))
+        detail = w.get("error") or {"done": "done", "no_changes": "no changes"}.get(p) or acts.get(w.get("id")) or "starting…"
+        # Measure plain text first so colors never push a line past the terminal width.
+        rest = clip(f" {w.get('id')}  {clip(w.get('title', ''), 26).ljust(26)}  ", max(0, width - 3))
+        lines.append("  " + paint(tint, mark) + rest + paint("2", clip(detail, max(0, width - 3 - len(rest)))))
+    if notes:
+        lines += ["", paint("2", clip("  · " + notes[-1], width))]
+    if running:
+        lines += ["", paint("2", "  Ctrl+C cancels the swarm")]
+    return lines
+
+class Screen:
+    """Redraws a block of lines in place; prints plain lines when output is not a terminal."""
+
+    def __init__(self):
+        self.live = sys.stdout.isatty()
+        self.drawn = 0
+
+    def draw(self, lines):
+        if not self.live:
+            return
+        out = (f"\x1b[{self.drawn}F" if self.drawn else "") + "\x1b[J" + "\n".join(lines) + "\n"
+        sys.stdout.write(out)
+        sys.stdout.flush()
+        self.drawn = len(lines)
+
+def watch(swarm):
+    """Show a swarm live until it finishes. Ctrl+C cancels it."""
+    acts, notes, screen, since = {}, [], Screen(), time.monotonic()
+
+    def listener(message, values):
+        worker = values.get("worker")
+        if worker is not None:
+            text = activity(message)
+            if text:
+                acts[worker] = text
+                if not screen.live:
+                    print(f"  agent {worker}: {text}", flush=True)
+        elif message:
+            notes.append(message)
+            if not screen.live:
+                print("  · " + message, flush=True)
+
+    swarm.listener = listener
+    frame = 0
+    try:
+        while swarm.thread.is_alive():
+            screen.draw(board(swarm.state, acts, notes, since, frame, shutil.get_terminal_size().columns))
+            frame += 1
+            swarm.thread.join(0.2)
+    except KeyboardInterrupt:
+        swarm.cancel.set()
+        print(paint("33", "\nCancelling: agents stop after their current step…"), flush=True)
+        try:
+            swarm.thread.join()
+        except KeyboardInterrupt:
+            print("Still stopping in the background; local worktrees are preserved.")
+            return
+    screen.draw(board(swarm.state, acts, notes, since, frame, shutil.get_terminal_size().columns, running=False))
+    swarm.listener = None
+    summary(swarm)
+
+def summary(swarm):
+    s = swarm.state
+    phase = s.get("phase")
+    print()
+    if phase == "ready":
+        stat = ""
+        with contextlib.suppress(Exception):
+            stat = git(swarm.repo, "diff", "--shortstat", s["base"], s["branch"]).stdout.strip()
+        tests = s.get("tests") or []
+        checks = "no tests configured (add some with /tests)" if not tests else f"{len(tests)} test command(s) passed"
+        print(paint("32;1", "✓ Ready for review") + paint("2", f"  {stat} · {checks}"))
+        review = [l for l in str(s.get("review", "")).splitlines() if l.strip()][:12]
+        if review:
+            print(paint("2", "\n  Review:"))
+            for line in review:
+                print("  " + clip(line, shutil.get_terminal_size().columns - 3))
+        print(paint("2", "\n  /apply puts the changes on your branch · /diff shows them · or type a new task"))
+    elif phase == "needs_attention":
+        print(paint("33;1", "! Needs attention: ") + str(s.get("error") or "tests failed"))
+        failed = [t for t in s.get("tests") or [] if t.get("exit_code")]
+        for t in failed[:1]:
+            print(paint("2", "  $ " + " ".join(t["command"])))
+            for line in str(t.get("output", "")).splitlines()[-12:]:
+                print("    " + line)
+        print(paint("2", f"  Review branch {s.get('branch', '')} is kept; /diff shows the changes."))
+    elif phase == "cancelled":
+        print(paint("33", "⊘ Cancelled. Worktrees are kept under " + str(swarm.folder)))
+    else:
+        print(paint("31;1", "✗ Failed: ") + str(s.get("error") or "see the activity above"))
+
+def pair(url, key, name):
+    """Connect this PC to a VPS and save the configuration."""
+    url = validate_url(url)
+    if not key:
+        raise CodeError("A Tako client key is required")
+    old = load(HOME / "config.json")
+    c = {**{k: v for k, v in old.items() if k in {"projects", "engine", "workers", "last_project"}},
+         "url": url, "key": key, "name": name, "runner": secrets.token_hex(16)}
+    api = Api(c)
+    cap = api.request("/v1/code/capabilities")
+    if cap.get("protocol") != 1 or not cap.get("free_gateway"):
+        raise CodeError("This VPS does not support Tako Code yet; update Tako on the VPS first")
+    register(api, c)
+    save(HOME / "config.json", c)
+    return c
+
+def onboard():
+    print("Let's connect this PC to your Tako server. You only do this once.\n")
+    while True:
+        url = input("  Server URL (https://…): ").strip()
+        key = os.environ.get("TAKO_CODE_API_KEY") or getpass.getpass("  Client key (web panel → Access & keys): ").strip()
+        try:
+            c = pair(url, key, socket.gethostname())
+            print(paint("32", "  ✓ Connected.\n"))
+            return c
+        except CodeError as e:
+            print(paint("31", "  ✗ " + str(e)) + "\n")
+
+def add_project(c, path, tests=None):
+    root = repo_root(path)
+    if HOME.resolve().is_relative_to(root):
+        raise CodeError("Keep TAKO_CODE_HOME outside the registered repository")
+    pid = hashlib.sha256(str(root).encode()).hexdigest()[:16]
+    known = c.setdefault("projects", {}).get(pid, {})
+    c["projects"][pid] = {"name": known.get("name", root.name), "path": str(root),
+                          "test_commands": tests if tests is not None else known.get("test_commands", [])}
+    c["last_project"] = pid
+    save(HOME / "config.json", c)
+    return pid
+
+def pick_project(c):
+    """Use the Git repository in the current directory, or the last one used."""
+    try:
+        return add_project(c, Path.cwd())
+    except CodeError:
+        pid = c.get("last_project")
+        return pid if pid in c.get("projects", {}) else None
+
+HELP = """  Type what you want built and press Enter. Commands:
+    /agents N        how many agents run in parallel (1–6)
+    /engine NAME     claude, codex, opencode or builtin
+    /tests CMD …     command that checks the result, e.g. /tests npm test  (/tests off)
+    /project PATH    work in another Git repository
+    /apply           put the last ready swarm's changes on your branch
+    /diff            show the last swarm's changes
+    /status          show connection, project and settings
+    /quit            leave (Ctrl+D also works)"""
+
+def show_diff(job_id):
+    patch = HOME / "jobs" / job_id / "changes.patch"
+    if not patch.exists():
+        print("  No changes recorded for this swarm.")
+        return
+    for line in patch.read_text(encoding="utf-8", errors="replace").splitlines():
+        color = "32" if line.startswith("+") and not line.startswith("+++") else "31" if line.startswith("-") and not line.startswith("---") else "36" if line.startswith("@@") else "1" if line.startswith("diff ") else ""
+        print(paint(color, line) if color else line)
+
+def status_line(c, pid, engine, workers):
+    project = c.get("projects", {}).get(pid)
+    where = f"{project['name']} ({project['path']})" if project else "no project: cd into a Git repository or use /project PATH"
+    return f"  {where}\n  {workers} × {ENGINE_NAMES.get(engine, engine)} · free models via {c['url']}"
+
+def tui():
+    enable_terminal()
+    print(paint("1", "tako code") + paint("2", f"  {VERSION} · a swarm of coding agents on your PC\n"))
+    c = load(HOME / "config.json")
+    if not c.get("url") or not c.get("key"):
+        c = onboard()
+    with runner_lock():
+        runner = Runner(c)
+        print(paint("2", "  Connecting…"), end="\r", flush=True)
+        runner.connect()
+        engines = available_engines()
+        engine = c.get("engine") if c.get("engine") in engines else next(e for e in ENGINE_ORDER if e in engines)
+        workers = c.get("workers", 3)
+        pid = pick_project(c)
+        print(status_line(c, pid, engine, workers))
+        if "claude" not in engines:
+            print(paint("2", "  Claude Code isn't installed, so agents use " + ENGINE_NAMES[engine] + ". Install it from https://claude.com/claude-code to use Claude Code agents."))
+        print(paint("2", "  Type a task, or /help.\n"))
+        runner.on_job = lambda swarm: print(paint("36", f"\n● Swarm started from the web panel: {clip(swarm.job['task'], 60)}. Press Enter to watch."), flush=True)
+        threading.Thread(target=runner.background, daemon=True).start()
+        last = None
+        try:
+            while True:
+                try:
+                    line = input(paint("34;1", "tako ❯ ")).strip()
+                except EOFError:
+                    break
+                except KeyboardInterrupt:
+                    print()
+                    break
+                if not line:
+                    if runner.active and runner.active.thread.is_alive():
+                        last = runner.active
+                        watch(last)
+                    continue
+                if line.startswith("/"):
+                    cmd, _, arg = line.partition(" ")
+                    arg = arg.strip()
+                    try:
+                        if cmd in ("/quit", "/exit", "/q"):
+                            break
+                        elif cmd == "/help":
+                            print(HELP)
+                        elif cmd == "/agents":
+                            if not arg.isdigit() or not 1 <= int(arg) <= 6:
+                                raise CodeError("Choose 1–6 agents, e.g. /agents 4")
+                            workers = c["workers"] = int(arg)
+                            save(HOME / "config.json", c)
+                            print(f"  {workers} agents per swarm.")
+                        elif cmd == "/engine":
+                            if arg not in ENGINE_NAMES:
+                                raise CodeError("Use /engine claude, codex, opencode or builtin")
+                            if arg not in available_engines():
+                                raise CodeError(f"{ENGINE_NAMES[arg]} isn't installed on this PC")
+                            engine = c["engine"] = arg
+                            save(HOME / "config.json", c)
+                            print(f"  Agents now use {ENGINE_NAMES[engine]}.")
+                        elif cmd == "/project":
+                            pid = add_project(c, Path(arg or ".").expanduser())
+                            print(status_line(c, pid, engine, workers))
+                        elif cmd == "/tests":
+                            if not pid:
+                                raise CodeError("Choose a project first")
+                            tests = [] if arg in ("", "off", "none") else [shlex.split(arg, posix=os.name != "nt")]
+                            add_project(c, c["projects"][pid]["path"], tests)
+                            print("  Tests: " + (" ".join(tests[0]) if tests else "none") + ". They run on the merged result before review.")
+                        elif cmd == "/status":
+                            print(status_line(c, pid, engine, workers))
+                            print("  " + ("connected" if not runner.error else "connection problem: " + runner.error))
+                        elif cmd == "/diff":
+                            if not last:
+                                raise CodeError("No swarm yet")
+                            show_diff(last.job["id"])
+                        elif cmd == "/apply":
+                            if not last:
+                                raise CodeError("No swarm yet")
+                            apply(last.job["id"])
+                            last.state["phase"] = "applied"
+                            print(paint("32", "  ✓ The changes are now on your branch (fast-forward). Nothing was pushed."))
+                        else:
+                            print("  Unknown command. Type /help.")
+                    except CodeError as e:
+                        print(paint("31", "  " + str(e)))
+                    continue
+                # Anything else is a task for the swarm.
+                try:
+                    if not pid:
+                        raise CodeError("cd into a Git repository first, or use /project PATH")
+                    repo = Path(c["projects"][pid]["path"])
+                    if git(repo, "status", "--porcelain").stdout.strip():
+                        raise CodeError("Your repository has uncommitted changes. Commit or stash them first; agents start from your last commit.")
+                    last = runner.submit(pid, engine, workers, line)
+                except CodeError as e:
+                    print(paint("31", "  " + str(e)))
+                    continue
+                watch(last)
+        finally:
+            if runner.active and runner.active.thread.is_alive():
+                print("Stopping the running swarm; worktrees are preserved…")
+            runner.shutdown()
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="tako-code", description="Local coding swarms, free-model routing on your Tako VPS. No code executes on the VPS.")
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command", required=True, title="commands (run with no command for the interactive swarm UI)")
     setup = sub.add_parser("setup", help="Pair this PC with your VPS using a Tako client key")
     setup.add_argument("--url")
     setup.add_argument("--name", default=socket.gethostname())
@@ -707,6 +1126,9 @@ def main(argv=None):
     ap = sub.add_parser("apply", help="Apply a reviewed job to an unchanged local branch")
     ap.add_argument("job")
     sub.add_parser("version")
+    argv = sys.argv[1:] if argv is None else argv
+    if not argv:
+        return tui()
     args = parser.parse_args(argv)
     if args.command == "version":
         print("tako-code " + VERSION)
@@ -714,17 +1136,8 @@ def main(argv=None):
     if args.command == "setup":
         url = validate_url(args.url or input("Tako VPS URL (https://…): "))
         key = os.environ.get("TAKO_CODE_API_KEY") or getpass.getpass("Tako client key (Access & keys on the VPS): ")
-        if not key:
-            raise CodeError("A Tako client key is required")
-        old = load(HOME / "config.json")
-        c = {"url": url, "key": key, "name": args.name, "runner": secrets.token_hex(16), "projects": old.get("projects", {})}
-        api = Api(c)
-        cap = api.request("/v1/code/capabilities")
-        if cap.get("protocol") != 1 or not cap.get("free_gateway"):
-            raise CodeError("This VPS does not support Tako Code yet; update Tako on the VPS first")
-        register(api, c)
-        save(HOME / "config.json", c)
-        print("PC paired. Next: tako-code project add /path/to/repo, then tako-code run")
+        pair(url, key, args.name)
+        print("PC paired. Next: cd into a Git repository and run tako-code")
         return
     c = config()
     if args.command == "project":

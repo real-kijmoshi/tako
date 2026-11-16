@@ -105,6 +105,37 @@ class Client(unittest.TestCase):
         worker.execute('read_file', {'path': 'a.txt'})
         worker.execute('write_file', {'path': 'a.txt', 'content': 'allowed'})
         self.assertEqual((self.repo / 'a.txt').read_text(), 'allowed')
+    def test_activity_turns_agent_json_into_short_status(self):
+        claude = json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'Edit', 'input': {'file_path': '/tmp/w/worker-1/src/app.py'}}]}})
+        codex = json.dumps({'type': 'item.started', 'item': {'type': 'command_execution', 'command': 'npm test'}})
+        opencode = json.dumps({'type': 'tool_use', 'part': {'type': 'tool', 'tool': 'write', 'state': {'input': {'filePath': '/x/y/z.py'}}}})
+        self.assertEqual(code.activity(claude), 'Edit src/app.py')
+        self.assertEqual(code.activity(codex), '$ npm test')
+        self.assertEqual(code.activity(opencode), 'write y/z.py')
+        self.assertEqual(code.activity('read_file a.txt'), 'read_file a.txt')
+        self.assertIsNone(code.activity(json.dumps({'type': 'system', 'subtype': 'init'})))
+        self.assertIsNone(code.activity(''))
+    def test_board_fits_the_terminal(self):
+        state = {'task': 'x' * 300, 'engine': 'claude', 'phase': 'working', 'workers': [
+            {'id': 1, 'title': 'A very long worker title that goes on and on', 'phase': 'working'},
+            {'id': 2, 'title': 'Short', 'phase': 'done'}, {'id': 3, 'title': 'Broken', 'phase': 'failed', 'error': 'e' * 200}]}
+        for width in (40, 80, 200):
+            lines = code.board(state, {1: 'Edit ' + 'y' * 300}, ['merging'], time.monotonic(), 3, width)
+            plain = [__import__('re').sub(r'\x1b\[[0-9;]*m', '', l) for l in lines]
+            self.assertTrue(all(len(l) < max(40, width) for l in plain), [len(l) for l in plain])
+            self.assertTrue(any('Claude Code × 3' in l for l in plain))
+    def test_current_directory_becomes_the_project(self):
+        c = {'url': 'https://x', 'key': 'k'}
+        with patch.object(code.Path, 'cwd', return_value=self.repo):
+            pid = code.pick_project(c)
+        self.assertEqual(c['projects'][pid]['path'], str(self.repo.resolve()))
+        self.assertEqual(c['last_project'], pid)
+        with patch.object(code.Path, 'cwd', return_value=self.folder):
+            self.assertEqual(code.pick_project(c), pid, 'outside a repo, reuse the last project')
+        code.add_project(c, self.repo, [['npm', 'test']])
+        self.assertEqual(c['projects'][pid]['test_commands'], [['npm', 'test']])
+        code.add_project(c, self.repo)
+        self.assertEqual(c['projects'][pid]['test_commands'], [['npm', 'test']], 'tests survive re-registering')
     def test_job_ids_from_vps_cannot_name_paths(self):
         for bad in ['../../etc', '0123456789ABCDEF', '0123456789abcde/', '']:
             with self.assertRaises(code.CodeError):
@@ -239,6 +270,21 @@ paid-route=["paid/billed-model"]
         self.assertGreaterEqual(status, 400, reply)
         self.assertTrue(all(model.endswith(':free') or model == 'kilo-auto/free' for model in Provider.seen), Provider.seen)
         Provider.fail = False
+        # A task typed in the terminal UI becomes a VPS job the web panel can see.
+        with tempfile.TemporaryDirectory() as folder, patch.object(code, 'HOME', Path(folder) / 'client'):
+            repo = Path(folder) / 'repo'; repo.mkdir()
+            subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+            (repo / 'a.txt').write_text('a\n'); code.git(repo, 'add', '.'); code.git(repo, 'commit', '-qm', 'init')
+            c = {'url': self.base, 'key': 'router-secret', 'name': 'Terminal PC', 'runner': 'term-pc'}
+            pid = code.add_project(c, repo)
+            runner = code.Runner(c); runner.connect()
+            with patch.object(code.Swarm, 'run', lambda swarm: swarm.event('Planned', phase='failed', error='stopped for the test')):
+                swarm = runner.submit(pid, 'builtin', 2, 'Typed in the terminal')
+                swarm.thread.join(10)
+            job = self.request('/api/code/action', {'action': 'job', 'id': swarm.job['id']})[1]
+            self.assertEqual((job['task'], job['source'], job['phase']), ('Typed in the terminal', 'terminal', 'failed'))
+            self.assertIsNone(runner.tick())
+            self.assertIsNone(runner.active, 'a finished swarm frees the runner')
         self.request('/api/action', {'action': 'provider.remove', 'provider': 'kilo'})
         Provider.seen.clear()
         self.assertEqual(self.request('/code/v1/chat/completions', body)[0], 503)
