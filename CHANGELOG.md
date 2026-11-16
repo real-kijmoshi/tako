@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.6 — 2026-11-16
+
+- Correct Nous Portal’s API access classification: obtaining a key requires credits or a plan; exclude Nous targets from free routes even when their IDs end in :free.
+- Mark Novita and Vikasit Check access and exclude them from free routes until account access is verified.
+- Recheck all six additions for account requirements; document ModelScope’s verified Alibaba Cloud account and current Magicube point allocation, and SiliconFlow identity/eligibility restrictions.
+- Add provider-specific setup guides to all 22 providers, inline connection instructions, official links, and copyable endpoints/first model targets.
+- Bundle official icons for the six newly added providers and show pricing/access badges on connected providers.
+- Add regression checks for account-gated free-route exclusion and guide/icon setup flows.
+
 ## 0.1.5 — 2026-11-16
 
 - Isolate smart-route unit-test fixtures to remove a parallel file-write race caught during release verification. Version 0.1.4 was tagged but not published.

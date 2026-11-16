@@ -23,7 +23,7 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
    w.fetch=async(url,options={})=>{
     if(modelFixture && new URL(url,base).pathname==='/api/action' && options.body){
      const request=JSON.parse(options.body);
-     if(request.action==='models' && request.provider==='nous')return new Response(JSON.stringify(modelFixture),{status:200,headers:{'content-type':'application/json'}});
+     if(request.action==='models' && request.provider===modelFixture.provider)return new Response(JSON.stringify(modelFixture),{status:200,headers:{'content-type':'application/json'}});
     }
     const response=await fetch(new URL(url,base),{...options,headers:options.headers});
     if(new URL(url,base).pathname==='/status' && tokenLimits!==null){
@@ -133,23 +133,43 @@ const wait=async fn=>{for(let i=0;i<100;i++){if(fn())return;await new Promise(r=
  await choose(bad);assert.equal($('#modal').open,false);
  assert.equal(fs.readFileSync(path.join(fixture,'config.toml'),'utf8'),config);
  assert.equal(errors.length,0,errors.join('\n'));
- // Free providers show recommended models and quotas without hiding the paid toggle.
- click('[data-page="providers"]');click('[data-provider-add="nous"]');
+ // Every new provider has a bundled mark and a usable, copyable setup guide.
+ click('[data-page="providers"]');
+ for(const id of ['nous','modelscope','siliconflow','blockrun','novita','vikasit']){
+  const guide=$(`[data-provider-guide="${id}"]`);assert.ok(guide,id);
+  assert.ok(guide.closest('.provider-card').querySelector('.plogo svg image'),id+' icon');
+  guide.click();assert.equal(d.querySelectorAll('.provider-steps li').length,3);
+  assert.ok($('#dialog-body a[target="_blank"]'));
+  click('[data-guide-copy]');await wait(()=>copied.startsWith('http'));
+  click('#dialog-cancel');
+ }
+ click('[data-provider-add="nous"]');
+ assert.match($('#add-setup-body').textContent,/adding credits or starting a plan/);
+ assert.equal($('#add-secret').required,true);assert.equal($('#add-setup').open,true);
  $('#add-secret').value='test-catalog-key';
  $('#dialog-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  await wait(()=>!$('#modal').open&&!!$('[data-provider-models="nous"]'));
- modelFixture={warning:'Showing unverified catalog suggestions.',models:[
-  {id:'upstage/solar-mini4:free',target:'nous/upstage/solar-mini4:free',free:true,recommended:true},
-  {id:'upstage/solar-mini4',target:'nous/upstage/solar-mini4',free:false,recommended:false}
+ modelFixture={provider:'nous',models:[
+  {id:'upstage/solar-mini4:free',target:'nous/upstage/solar-mini4:free',free:false,recommended:true}
  ]};
- click('[data-provider-models="nous"]');
- await wait(()=>$('#model-list').textContent.includes('Recommended'));
- assert.equal($('#models-free').checked,true);
- assert.equal(d.querySelectorAll('.model-option').length,1);
+ click('[data-provider-models="nous"]');await wait(()=>$('#model-list').textContent.includes('Recommended'));
+ assert.equal($('#models-free').checked,false);
+ assert.ok(!$('#model-list').textContent.includes('free tier'));
+ click('#dialog-cancel');
+ click('[data-provider-guide="blockrun"]');click('#guide-connect');
+ assert.equal($('#add-secret').required,false);assert.match($('#add-secret').placeholder,/leave blank/);
+ $('#dialog-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ await wait(()=>!$('#modal').open&&!!$('[data-provider-models="blockrun"]'));
+ modelFixture={provider:'blockrun',warning:'Showing unverified catalog suggestions.',models:[
+  {id:'poolside/laguna-xs-2.1',target:'blockrun/poolside/laguna-xs-2.1',free:true,recommended:true},
+  {id:'paid/example',target:'blockrun/paid/example',free:false,recommended:false}
+ ]};
+ click('[data-provider-models="blockrun"]');await wait(()=>$('#model-list').textContent.includes('Recommended'));
+ assert.equal($('#models-free').checked,true);assert.equal(d.querySelectorAll('.model-option').length,1);
  assert.match($('#model-load-error').textContent,/unverified/);
  $('#models-free').checked=false;$('#models-free').dispatchEvent(new w.Event('change',{bubbles:true}));
- assert.equal(d.querySelectorAll('.model-option').length,2);
- click('#dialog-cancel');
+ assert.equal(d.querySelectorAll('.model-option').length,2);click('#dialog-cancel');
+ assert.equal(errors.length,0,errors.join('\n'));
  dom.window.close();
  const login=new JSDOM(fs.readFileSync(root+'/src/web/login.html','utf8'),{url:base+'/ui?session=expired#access',runScripts:'dangerously'});
  const ld=login.window.document;assert.equal(ld.title,'Sign in · tako');assert.ok(ld.querySelector('.brand .tako-mark'));assert.equal(ld.querySelector('#expired').hidden,false);

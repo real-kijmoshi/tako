@@ -1,31 +1,15 @@
-# Tako 0.1.5
+# Tako 0.1.6
 
-Tako now includes 22 providers, adding Nous Portal, ModelScope, SiliconFlow China,
-BlockRun's anonymous free endpoint, Novita's free Apodex promotion, and Vikasit Nova.
-Recommended models appear first in the web picker, with a free-only filter for
-providers with identified free models. Quotas, promotions, and paid access are
-explained in the catalog; Mistral's direct API is clearly labelled paid.
+This patch corrects the free-access claims in 0.1.5 and completes provider setup.
 
-Smart routes such as `free:auto`, `free:coding`, and `any:reasoning` choose a model
-for each request using task fit and observed health, then fall back through the
-ranked candidates. Routes work as defaults and aliases and appear in the model
-list, playground, and Combos screen. The live routing map now makes traffic and
-in-flight requests easier to follow. The setup checklist can be dismissed.
+- **Nous Portal is paid API access in Tako.** Creating a Portal key requires adding credits or starting a plan. Nous is excluded from free routes, including models with `:free` IDs. Hermes OAuth is a separate access method.
+- **Novita and Vikasit are marked Check access.** Novita’s zero-balance promotional access was not verified; Vikasit’s advertised free allowance could not be tested. Neither enters automatic free routes.
+- **ModelScope requirements are explicit.** Link a verified Alibaba Cloud account and check Magicube points; the stale 2,000 calls/day claim is removed. SiliconFlow’s identity and eligibility limits are also documented.
+- **Every provider has an in-app setup guide**, with account steps, official links, API key instructions, a copyable endpoint, and a first target to test. Guides are available before and after connecting.
+- **The six new providers have bundled official icons**, available without external image requests. Connected cards show their access classification.
 
-The smart-route tests now parse independent in-memory configs, removing a
-parallel fixture race found by release verification.
+BlockRun’s anonymous free endpoint was rechecked with a successful response containing nonempty content. No accounts were created or billing activated for this review.
 
-## Free-model checks
+See the [account-access review](https://github.com/real-kijmoshi/tako/blob/v0.1.6/docs/provider-access-audit.md) for sources and the distinction between model price and usable account access.
 
-Before release, live catalogs and current pricing documentation were rechecked.
-Twelve tiny inference requests succeeded across Z.ai, Groq, Kilo, and BlockRun.
-Unavailable BlockRun Muse Glimmer and retired Typhoon 2.1 were removed from the
-recommendations. Other authenticated providers were checked against public
-catalogs/documentation; their inference was not tested without credentials.
-Free tiers remain account- and quota-dependent, and promotions can end.
-
-See [provider selections and evidence](https://github.com/real-kijmoshi/tako/blob/v0.1.5/docs/providers.md)
-and the [dated model audit](https://github.com/real-kijmoshi/tako/blob/v0.1.5/docs/free-model-audit.json).
-
-Update with `tako update`. Updating restarts a running router and can interrupt
-active requests; configuration and keys persist.
+Update with `tako update`. Updating restarts a running router and can interrupt active requests; configuration and keys persist. Existing Nous, Novita, or Vikasit targets remain in your configuration, but `free:*` routes exclude them.

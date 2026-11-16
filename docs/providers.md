@@ -2,6 +2,8 @@
 
 Checked 16 November 2026. Recommendations prioritize coding, tool use, reasoning,
 and useful fallback coverage; they are curated picks, not benchmark rankings.
+The [account-access review](provider-access-audit.md) corrects the initial model-price-only audit. Every provider now has an in-app setup guide with access requirements, official links, and a copyable endpoint/first target.
+
 The model picker loads the full live catalog, shows recommendations first, and
 starts with **Free only** for providers with identified free models and local providers. Uncheck it to see
 paid models. Connecting a provider still requires your own account/key unless
@@ -9,15 +11,15 @@ the catalog says no key is needed.
 
 | Provider | Recommended starting points | What is free |
 | --- | --- | --- |
-| Nous Portal | LongCat 2.5, Step 3.7 Flash, Solar Mini 4 | Explicit `:free` variants; other models use credits |
+| Nous Portal | LongCat 2.5, Step 3.7 Flash, Solar Mini 4 | **Paid API access:** adding credits or starting a plan is required to obtain a key; excluded from `free:*` |
 | OpenRouter | Ling 3.2 Flash, North Mini Code, Nemotron 3 Ultra, Nemotron 3.5 Super VL, Inkling 2 Small, Gemma 4 31B | `:free` models and `openrouter/free`; daily/minute limits apply |
 | NVIDIA NIM | DeepSeek V4.1 Flash, GLM 5.3 Flash, MiniMax M3.1 Flash, Step 5 Preview, Mistral Large 4 | Developer access, subject to NVIDIA account limits |
-| ModelScope | DeepSeek V4.1 Flash, GLM 5.2, Step 5 Preview, Qwen3.8 27B, Kimi K3.1 Pro, MiniMax M3 | ModelScope-hosted daily inference allowance, not commercial partner endpoints |
+| ModelScope | DeepSeek V4.1 Flash, GLM 5.2, Step 5 Preview, Qwen3.8 27B, Kimi K3.1 Pro, MiniMax M3 | Linked, verified Alibaba Cloud account and available Magicube points required; partner endpoints are separate |
 | Kilo Gateway | North Mini Code, Nemotron 3 Ultra, Nemotron 3.5 Super VL, `kilo-auto/free` | Explicit free models; anonymous access has IP limits |
-| SiliconFlow China | Xing4.0 29B, Qwen3 8B, Qwen3.5 4B, DeepSeek R1 distilled 8B | Named zero-priced models only; Pro variants are paid |
+| SiliconFlow China | Xing4.0 29B, Qwen3 8B, Qwen3.5 4B, DeepSeek R1 distilled 8B | Named zero-priced models only; identity verification and regional eligibility can restrict access; Pro variants are paid |
 | BlockRun free endpoint | Laguna XS 2.1, Nemotron 3 Ultra, Nemotron 3.5 Lightning, Nemotron 3.5 Bolt | Named free models without a key/wallet; unavailable models are hidden; aliases may use a different healthy free upstream |
-| Novita | Apodex 1.1 Mini | Temporary zero-priced promotion for that model only |
-| Vikasit | Vikasit Nova | Nova's 2M tokens/day allowance; other models are paid |
+| Novita | Apodex 1.1 Mini | **Check access:** zero-price promotion, but zero-balance account access is unverified; excluded from `free:*` |
+| Vikasit | Vikasit Nova | **Check access:** advertised 2M tokens/day, but API discovery timed out and inference is unverified; excluded from `free:*` |
 | Groq | GPT OSS 120B, GPT OSS 20B | Account free tier; short token-per-minute budgets |
 | Gemini | Gemini 3.8 Flash, Gemini 3.5 Flash-Lite, Gemini 3.1 Flash-Lite | Documented free-tier text models; paid-tier keys are billed at paid-tier prices |
 | Z.ai | GLM 4.7 Flash, GLM 4.5 Flash | Explicit free Flash IDs; newer Flash/FlashX names are not automatically free |

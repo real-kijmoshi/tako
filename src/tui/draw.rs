@@ -41,7 +41,7 @@ fn tier_badge(t: Tier) -> Span<'static> {
         match t {
             Tier::Free => OK,
             Tier::Local => ACCENT,
-            Tier::Paid => WARN,
+            Tier::Paid | Tier::Conditional => WARN,
         },
     )
 }
@@ -860,6 +860,11 @@ fn providers(f: &mut Frame, area: Rect, app: &App, targets: &mut Vec<ClickTarget
             ]));
             lines.push(Line::raw(""));
             lines.push(Line::raw(e.blurb));
+            lines.push(Line::raw(""));
+            lines.push(Line::from(bold("setup guide", ACCENT2)));
+            for (i, step) in e.setup_guide().steps.iter().enumerate() {
+                lines.push(Line::raw(format!("{}  {step}", i + 1)));
+            }
             lines.push(Line::raw(""));
             lines.push(Line::from(vec![dim("limits     "), Span::raw(e.limits)]));
             lines.push(Line::from(vec![

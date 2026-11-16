@@ -565,6 +565,39 @@ mine = ["zai/glm-4.5-flash", "deepseek/deepseek-chat"]
     }
 
     #[test]
+    fn gated_and_unverified_services_cannot_join_free_routes() {
+        let c = cfg(r#"
+[providers.nous]
+type = "openai"
+key = "test"
+[providers.novita]
+type = "openai"
+key = "test"
+[providers.vikasit]
+type = "openai"
+key = "test"
+[providers.blockrun]
+type = "openai"
+[combos]
+manual = ["nous/upstage/solar-mini4:free", "novita/apodex/apodex-1.1-mini", "vikasit/vikasit-nova"]
+"#);
+        let free = rank(&c, "free", "coding", NONE);
+        assert!(!free.is_empty());
+        assert!(free.iter().all(|target| target.provider == "blockrun"));
+        for provider in ["nous", "novita", "vikasit"] {
+            for target in catalog::get(provider).unwrap().models {
+                assert!(!in_pool(
+                    &Target {
+                        provider: provider.into(),
+                        model: (*target).into()
+                    },
+                    "free"
+                ));
+            }
+        }
+    }
+
+    #[test]
     fn picks_the_model_for_the_task() {
         let c = cfg(CFG);
         let first = |pool, task| {

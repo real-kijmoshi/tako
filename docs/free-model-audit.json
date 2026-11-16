@@ -733,5 +733,17 @@
   "summary": {
     "inference_successes": 12,
     "inference_failures": 0
+  },
+  "access_review": {
+    "source": "docs/provider-access-audit.md",
+    "checked_on": "2026-11-16",
+    "corrections": {
+      "nous": "API key requires adding credits or starting a plan; excluded from free routes",
+      "modelscope": "Linked real-name-verified Alibaba Cloud account and Magicube points required; fixed 2000-call claim removed",
+      "siliconflow": "Identity verification and regional eligibility constraints now explicit",
+      "novita": "Zero-balance access unverified; excluded from free routes",
+      "vikasit": "Advertised allowance only; API discovery timed out; excluded from free routes",
+      "blockrun": "Anonymous inference rechecked: HTTP 200 with nonempty content from Laguna XS 2.1"
+    }
   }
 }

@@ -11,12 +11,16 @@ static EDIT: Mutex<()> = Mutex::new(());
 pub fn catalog() -> Value {
     json!(catalog::ALL
         .iter()
-        .map(|e| json!({
-            "id": e.id, "name": e.name, "tier": e.tier.label(), "type": e.wire.name(),
-            "base_url": e.base_url, "key_url": e.key_url, "blurb": e.blurb,
-            "limits": e.limits, "max_tokens": e.max_tokens, "recommended": e.models,
-            "free_filter": !matches!(e.free, catalog::FreeRule::None),
-        }))
+        .map(|e| {
+            let guide = e.setup_guide();
+            json!({
+                "id": e.id, "name": e.name, "tier": e.tier.label(), "type": e.wire.name(),
+                "base_url": e.base_url, "key_url": e.key_url, "blurb": e.blurb,
+                "limits": e.limits, "max_tokens": e.max_tokens, "recommended": e.models,
+                "free_filter": !matches!(e.free, catalog::FreeRule::None),
+                "setup": {"url": guide.url, "steps": guide.steps},
+            })
+        })
         .collect::<Vec<_>>())
 }
 

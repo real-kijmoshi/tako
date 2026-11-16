@@ -11,6 +11,7 @@ pub enum Tier {
     Free,
     Local,
     Paid,
+    Conditional,
 }
 
 impl Tier {
@@ -19,6 +20,7 @@ impl Tier {
             Tier::Free => "FREE",
             Tier::Local => "LOCAL",
             Tier::Paid => "PAID",
+            Tier::Conditional => "CHECK ACCESS",
         }
     }
 }
@@ -75,32 +77,69 @@ impl Entry {
     }
 }
 
+/// In-app setup instructions. Kept alongside the catalog for web and terminal clients.
+pub struct SetupGuide {
+    pub url: &'static str,
+    pub steps: &'static [&'static str],
+}
+
+impl Entry {
+    pub fn setup_guide(&self) -> SetupGuide {
+        let (url, steps): (&str, &[&str]) = match self.id {
+            "nous" => ("https://portal.nousresearch.com/compare", &["Sign in to Nous Portal. Read the API access requirements: creating an API key requires adding credits or starting a plan.", "Open API keys and create a Portal API key after enabling paid access. Hermes OAuth and plan-included usage are separate from API-key billing.", "Paste the Portal API key in Tako and connect. Test a model before adding it to a paid or any route; Nous is excluded from free routes."]),
+            "modelscope" => ("https://modelscope.ai/posts/434362", &["Sign in to ModelScope, bind an Alibaba Cloud account, and complete that account's real-name verification. Then open your profile → Access Tokens and create an inference token.", "Choose a model whose API Inference provider is ModelScope. Commercial partners and Alibaba DashScope use different credentials and billing.", "Paste the ModelScope token in Tako, connect, then test a recommended text model. Check your Magicube points balance; calls cost 0.5, 1 or 2 points by model tier. If the balance is exhausted, obtain more points under the account rules."]),
+            "siliconflow" => ("https://www.siliconflow.cn/pricing", &["Register on SiliconFlow China and check its real-name requirements. Online verification accepts specified Chinese/residence documents; contact support for other documents. International SiliconFlow accounts use a different service.", "Open Account → API Keys and create a key. Check the current pricing page: only models with zero input and output prices are free; Pro variants are paid.", "Paste the key in Tako, connect, and test a recommended zero-priced model. Keep Free only enabled when building your combo."]),
+            "blockrun" => ("https://blockrun.ai/free", &["Use BlockRun’s public free endpoint. No account, API key, wallet or payment setup is needed for this endpoint.", "Leave API key blank and connect. Choose a listed free model; availability depends on upstream capacity and aliases may return a different free model.", "Run Test, then add working models to a combo or use free:auto. Paid BlockRun endpoints and wallet setup are separate services."]),
+            "novita" => ("https://novita.ai/models/model-detail/apodex-apodex-1.1-mini", &["Sign in to Novita and open API Keys to create a key. A free model listing does not establish whether your account must activate billing.", "Check Apodex 1.1 Mini’s current input/output prices and your account’s access requirements before connecting. This is a temporary promotion; other models are metered.", "Paste the key, connect, and explicitly test apodex/apodex-1.1-mini. Do not add other Novita models to a free combo."]),
+            "vikasit" => ("https://vikasit.ai/inference", &["Sign in with GitHub on Vikasit’s inference page and create an API key.", "Select vikasit-nova for the advertised daily free allowance. Other Vikasit and resold models are pay-as-you-go.", "Paste the key, connect, and test Nova. If live discovery is unavailable, Tako labels its catalog suggestion as unverified; test it before relying on the route."]),
+            "zai" => ("https://docs.z.ai/guides/overview/pricing", &["Sign in to Z.ai’s international API platform and create an API key in API key management.", "Use the standard model API endpoint, not the GLM Coding Plan endpoint. GLM 4.7 Flash and 4.5 Flash are free; newer Flash and FlashX models are paid.", "Paste the key, connect, and test a suggested Flash model. Build a combo with one request at a time to respect concurrency limits."]),
+            "openrouter" => ("https://openrouter.ai/settings/keys", &["Create an OpenRouter account, open Settings → API Keys, and create a key.", "Choose an explicit :free model or openrouter/free. A credit purchase is optional for higher free-model quotas; it is not needed for the basic daily free limit.", "Paste the key, connect, and browse Free only. Test your chosen model, then add it to a combo or use free:auto."]),
+            "groq" => ("https://console.groq.com/docs/rate-limits", &["Sign in to GroqCloud Console and create a key on API Keys.", "Keep your account on the Free plan for free quotas. A Developer account uses paid pricing; inspect your console’s plan and model limits.", "Paste the key, connect, and test GPT OSS. Short requests work best within the free token-per-minute allowance."]),
+            "nvidia" => ("https://build.nvidia.com", &["Sign in to NVIDIA Build with a developer account and open API Keys to generate a key.", "Choose an NVIDIA-hosted serverless model that your account can access. Free development access and limits are provider-controlled; self-hosted NIM infrastructure is separate.", "Paste the key, connect, and test a recommended coding model. Add working choices to your fallback combo."]),
+            "gemini" => ("https://aistudio.google.com/docs/pricing", &["Open Google AI Studio, choose your project, and create an API key.", "Check that the project uses the Free tier and your model has a free quota. Paid-tier projects are billed at paid rates even for models with free-tier offerings.", "Paste the key, connect, and test a recommended Flash model. Region, project and daily limits apply."]),
+            "kilo" => ("https://kilo.ai/docs/gateway/authentication", &["Use the Kilo Gateway free endpoint with the API key field blank. Anonymous free-model access is limited by IP.", "Select kilo-auto/free or an explicit :free model. Other gateway models require an account and paid access.", "Connect and run Test. Add working models to a combo; no Kilo key is required for the anonymous free pool."]),
+            "cloudflare" => ("https://developers.cloudflare.com/workers-ai/get-started/rest-api/", &["Sign in to Cloudflare, open your account, and copy its 32-character Account ID.", "Create an API token with Workers AI Read permission for that account. Check model eligibility and the daily neuron allocation.", "Enter the Account ID and token in Tako; the account-specific endpoint is filled in for you. Connect and test an eligible model."]),
+            "llm7" => ("https://dash.llm7.io/", &["Sign in to the LLM7 dashboard and create a Free API token.", "Check which models your token’s allowance covers. A model’s general catalog price is different from access within the Free-token allowance.", "Paste the token, connect, and test a suggested eligible model. Treat this educational service as a fallback with changing quotas."]),
+            "typhoon" => ("https://docs.opentyphoon.ai/en/rate-limits/", &["Sign in to the OpenTyphoon playground and create an API key on API Keys.", "Choose the available Typhoon text model. OCR and speech model listings are not interchangeable with chat models.", "Paste the key, connect, and test Typhoon 2.5 30B. Respect the published per-model limits when adding it to a combo."]),
+            "cohere" => ("https://docs.cohere.com/docs/rate-limits", &["Sign in to the Cohere dashboard and create an evaluation API key.", "Evaluation keys provide limited free testing; production keys are paid. Check the model and monthly allowance associated with your key.", "Paste the evaluation key, connect, and test a suggested Command model before adding it to an evaluation combo."]),
+            "vercel" => ("https://vercel.com/docs/ai-gateway/pricing", &["Open your Vercel team’s AI Gateway dashboard and create a gateway key.", "Check Free Tier model eligibility and your account’s monthly credits. Purchasing credits transitions the team to paid access.", "Paste the key, connect, and choose an eligible model in the dashboard. Tako does not label arbitrary Vercel models free."]),
+            "mistral" => ("https://docs.mistral.ai/admin/billing-usage/usage-limits", &["Sign in to Mistral Studio and activate billing/pay-as-you-go for API access. Studio or Vibe Free mode does not include API access.", "Create an API key in the console. Review rates and your spending limit before testing Codestral, Devstral or Mistral Large.", "Paste the key, connect, and use paid or any routes. For NVIDIA-hosted Mistral, configure NVIDIA separately with its own key."]),
+            "ollama" => ("https://docs.ollama.com/api/openai-compatibility", &["Install Ollama and download a model that fits your hardware, for example with ollama pull qwen3-coder.", "Start Ollama’s local server. Leave the API key blank and use the local endpoint shown below.", "Connect, browse your installed models, and run Test. Models run on the machine hosting Tako."]),
+            "lmstudio" => ("https://lmstudio.ai/docs/developer", &["Install LM Studio and download a model that fits the host machine.", "Open Developer → Local Server, load the model and start the OpenAI-compatible server on port 1234.", "Leave the key blank unless you enabled server authentication, connect, and test the loaded model."]),
+            "deepseek" => ("https://platform.deepseek.com/api_keys", &["Sign in to DeepSeek’s developer platform and add credits for its paid API.", "Create an API key and review current model pricing and your account balance.", "Paste the key, connect, and test a model using a paid or any route. NVIDIA-hosted DeepSeek requires a separate NVIDIA key."]),
+            "zai-coding" => ("https://docs.z.ai/devpack/overview", &["Subscribe to the GLM Coding Plan on Z.ai. Standard free Flash access is a separate provider.", "Create or copy the API key for your subscribed account. Tako uses the Coding Plan’s Anthropic-compatible endpoint.", "Paste the key, connect, and add models supported by your plan to a paid combo. Check the plan’s rolling usage limits."]),
+            _ => (self.key_url, &["Read your provider's API documentation.", "Create a key with the required inference permissions and check its billing terms.", "Connect, test a model, then add it to a combo."]),
+        };
+        SetupGuide { url, steps }
+    }
+}
+
 pub const ALL: &[Entry] = &[
     Entry {
         id: "nous",
-        name: "Nous Portal",
-        tier: Tier::Free,
+        name: "Nous Portal (paid API access)",
+        tier: Tier::Paid,
         wire: Wire::Openai,
         base_url: "https://inference-api.nousresearch.com/v1",
         key_url: "https://portal.nousresearch.com/api-keys",
-        blurb: "Free LongCat 2.5, Step 3.7 Flash and Solar Mini 4 alongside paid frontier models. A Portal API key works with this OpenAI-compatible endpoint.",
-        limits: "Only models explicitly marked :free or priced at zero are free. API keys use model pricing; paid models consume credits. Promotions and account limits can change.",
+        blurb: "Nous Portal API keys require adding credits or starting a plan. Zero-priced model variants do not make the API-key setup free. Hermes Portal sign-in is a separate access method.",
+        limits: "Payment is required to obtain a Portal API key. API calls use credit balances, not a plan's included Hermes usage. Tako does not implement Portal OAuth; Nous targets are excluded from free routes even when model IDs end in :free.",
         models: &["meituan/longcat-2.5:free", "stepfun/step-3.7-flash:free", "upstage/solar-mini4:free"],
         models_url: None,
-        free: FreeRule::OpenRouter,
+        free: FreeRule::None,
         max_tokens: None,
         list_incomplete: false,
         list_headers: &[],
     },
     Entry {
         id: "modelscope",
-        name: "ModelScope",
+        name: "ModelScope (verified account)",
         tier: Tier::Free,
         wire: Wire::Openai,
         base_url: "https://api-inference.modelscope.cn/v1",
         key_url: "https://modelscope.cn/my/myaccesstoken",
         blurb: "Free ModelScope-hosted inference, including DeepSeek, Qwen, GLM, Kimi and StepFun. Use a ModelScope access token, not an Alibaba DashScope key.",
-        limits: "Up to 2,000 calls/day per account, at most 200/day per model; actual model quotas can be lower. Single-request concurrency is recommended. Applies to ModelScope-hosted inference, not commercial partner endpoints.",
+        limits: "Requires a linked, real-name-verified Alibaba Cloud account. Calls spend your available Magicube points (0.5, 1 or 2 per call by model tier); check current balance and eligibility. Single-request concurrency is recommended. Commercial partner endpoints are separate.",
         models: &["deepseek-ai/DeepSeek-V4.1-Flash", "ZhipuAI/GLM-5.2", "stepfun-ai/Step-5-Preview", "Qwen/Qwen3.8-27B", "moonshotai/Kimi-K3.1-Pro", "MiniMax/MiniMax-M3"],
         models_url: None,
         free: FreeRule::All,
@@ -116,7 +155,7 @@ pub const ALL: &[Entry] = &[
         base_url: "https://api.siliconflow.cn/v1",
         key_url: "https://cloud.siliconflow.cn/account/ak",
         blurb: "Selected small open models have zero input and output prices. Xing4.0 is the larger reasoning choice; Qwen3 8B and Qwen3.5 4B are lighter fallbacks.",
-        limits: "Only the named zero-priced models are marked free. Pro variants and larger models are paid. This is the China service; account verification and model-specific rate limits may apply.",
+        limits: "Check identity and regional eligibility for the China service. Online verification supports specified Chinese/residence documents; other documents require support. Only named zero-priced models are free; Pro variants are paid. Free-model rate limits apply.",
         models: &["XingChenAGI/Xing4.0-29B", "Qwen/Qwen3-8B", "Qwen/Qwen3.5-4B", "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B", "THUDM/GLM-4-9B-0414", "THUDM/GLM-Z1-9B-0414", "Qwen/Qwen2.5-7B-Instruct", "tencent/Hunyuan-MT-7B"],
         models_url: None,
         free: FreeRule::Only(&["XingChenAGI/Xing4.0-29B", "Qwen/Qwen3-8B", "Qwen/Qwen3.5-4B", "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B", "THUDM/GLM-4-9B-0414", "THUDM/GLM-Z1-9B-0414", "Qwen/Qwen2.5-7B-Instruct", "tencent/Hunyuan-MT-7B"]),
@@ -143,15 +182,15 @@ pub const ALL: &[Entry] = &[
     Entry {
         id: "novita",
         name: "Novita (Apodex promotion)",
-        tier: Tier::Free,
+        tier: Tier::Conditional,
         wire: Wire::Openai,
-        base_url: "https://api.novita.ai/v3/openai",
+        base_url: "https://api.novita.ai/openai/v1",
         key_url: "https://novita.ai/settings/key-management",
         blurb: "Apodex 1.1 Mini is a coding and tool-use model with a 256K context, currently listed at zero input and output cost. Other Novita models are metered.",
-        limits: "Apodex 1.1 Mini is a launch promotion, not permanent free access. Verify its current price in the dashboard; account and promotional limits apply.",
+        limits: "Apodex has a zero-price promotion, but Novita requires checking account credit and model access. No authenticated zero-balance test was completed. Excluded from automatic free routes until you verify account access.",
         models: &["apodex/apodex-1.1-mini"],
         models_url: None,
-        free: FreeRule::Only(&["apodex/apodex-1.1-mini"]),
+        free: FreeRule::None,
         max_tokens: None,
         list_incomplete: false,
         list_headers: &[],
@@ -159,15 +198,15 @@ pub const ALL: &[Entry] = &[
     Entry {
         id: "vikasit",
         name: "Vikasit AI (Nova allowance)",
-        tier: Tier::Free,
+        tier: Tier::Conditional,
         wire: Wire::Openai,
         base_url: "https://api.vikasit.ai/v1",
         key_url: "https://vikasit.ai/inference",
         blurb: "Vikasit Nova offers a daily free allowance for general chat and coding. Other Vikasit and ecosystem models are pay-as-you-go.",
-        limits: "Nova only: 2 million tokens/day, no card required, subject to fair use and changing account limits. Do not select paid Vikasit models for a free combo.",
+        limits: "Provider advertises Nova at 2 million tokens/day with no card required. Public model discovery timed out and inference was not verified. Excluded from automatic free routes; verify access before using it.",
         models: &["vikasit-nova"],
         models_url: None,
-        free: FreeRule::Only(&["vikasit-nova"]),
+        free: FreeRule::None,
         max_tokens: None,
         list_incomplete: true,
         list_headers: &[],
@@ -476,17 +515,17 @@ mod tests {
 
     #[test]
     fn free_access_is_specific_to_the_provider_and_model() {
-        assert!(get("nous")
+        assert!(!get("nous")
             .unwrap()
-            .is_free("upstage/solar-mini4:free", false));
+            .is_free("upstage/solar-mini4:free", true));
         assert!(!get("nous").unwrap().is_free("upstage/solar-mini4", false));
         assert!(get("siliconflow").unwrap().is_free("Qwen/Qwen3-8B", false));
         assert!(!get("siliconflow")
             .unwrap()
             .is_free("Pro/Qwen/Qwen3-8B", false));
-        assert!(get("vikasit").unwrap().is_free("vikasit-nova", false));
+        assert!(!get("vikasit").unwrap().is_free("vikasit-nova", false));
         assert!(!get("vikasit").unwrap().is_free("vikasit-3", false));
-        assert!(get("novita")
+        assert!(!get("novita")
             .unwrap()
             .is_free("apodex/apodex-1.1-mini", false));
         assert!(!get("novita")
@@ -514,6 +553,18 @@ mod tests {
         );
         assert!(cloudflare_url("short").is_err());
         assert!(cloudflare_url("../../../../somewhere/else/path!!").is_err());
+    }
+
+    #[test]
+    fn every_provider_has_actionable_setup_steps() {
+        for entry in ALL {
+            let guide = entry.setup_guide();
+            assert!(guide.url.starts_with("https://"), "{}", entry.id);
+            assert!(guide.steps.len() >= 3, "{}", entry.id);
+            assert!(guide.steps.iter().all(|step| step.len() > 40));
+        }
+        assert!(get("nous").unwrap().setup_guide().steps[0].contains("credits"));
+        assert!(get("modelscope").unwrap().setup_guide().steps[0].contains("real-name"));
     }
 
     #[test]
