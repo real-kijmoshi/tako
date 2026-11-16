@@ -134,6 +134,7 @@ h1 { font: 700 34px/1.1 var(--sign); letter-spacing: -.005em; margin: 0 0 6px; }
 .kpi .label { font-size: 12.5px; color: var(--text-2); }
 .kpi .value { font: 700 34px/1.1 var(--sign); margin-top: 6px; font-variant-numeric: tabular-nums; position: relative; }
 .kpi .value small { font-size: 16px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+.kpi .value.unreported { font-size: 24px; }
 .kpi .sub { font-size: 12px; color: var(--muted); margin-top: 2px; min-height: 18px; position: relative; }
 .kpi.hl .value { color: var(--good-text); }
 .kpi.bad .value { color: var(--critical-text); }
@@ -746,6 +747,35 @@ button:disabled { cursor: not-allowed; }
 .setup-values > div > span { width: 100%; font-size: 12px; color: var(--text-2); }
 .setup-values code { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 
+
+/* Local coding crew */
+.code-intro { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:16px; }
+.code-intro h2 { margin:14px 0 8px; font-size:26px; }
+.code-intro p { max-width:700px; line-height:1.7; }
+.code-intro > .code-download { flex:none; display:grid; gap:10px; min-width:220px; }
+.code-download .field { margin:0; }
+.code-onboard { margin-bottom:20px; }
+.code-onboard pre, #code-detail pre { white-space:pre-wrap; overflow-wrap:anywhere; padding:14px; border:1px solid var(--rule); border-radius:8px; max-height:440px; overflow:auto; font:12px/1.7 var(--mono); }
+.code-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; margin-bottom:20px; }
+.code-form-row { display:grid; grid-template-columns:2fr 1fr; gap:12px; }
+.code-jobs { display:grid; gap:9px; max-height:620px; overflow:auto; }
+.code-job { display:grid; gap:8px; padding:14px; border:1px solid var(--rule); border-radius:9px; text-align:left; background:var(--surface); color:var(--text); cursor:pointer; }
+.code-job.selected { border-color:var(--blue); background:color-mix(in srgb,var(--blue) 5%,var(--surface)); }
+.code-phase { display:inline-flex; width:fit-content; text-transform:uppercase; font:700 10px var(--mono); letter-spacing:.05em; border:1px solid var(--rule); padding:5px 7px; border-radius:5px; }
+.code-phase.ready,.code-phase.applied,.code-phase.done { color:var(--good-text); background:color-mix(in srgb,var(--good) 10%,transparent); }
+.code-phase.failed,.code-phase.needs_attention { color:var(--bad); }
+.code-agents { display:grid; gap:10px; margin:18px 0; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+.code-agent { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:14px; border:1px solid var(--rule); border-radius:9px; }
+.code-agent strong { flex:1; }
+#code-detail details { margin:18px 0; }
+#code-detail summary { cursor:pointer; font-weight:650; }
+.code-events { max-height:300px; overflow:auto; font:12px/1.6 var(--mono); margin-top:12px; }
+.code-events > div { display:flex; gap:14px; padding:6px 0; border-bottom:1px solid var(--rule); }
+.code-events time { color:var(--text-2); flex:none; }
+.code-events span { overflow-wrap:anywhere; min-width:0; }
+.code-apply { border-top:1px solid var(--rule); padding-top:18px; }
+@media(max-width:900px) { .code-layout{grid-template-columns:1fr;} .code-intro{align-items:flex-start; flex-direction:column;} }
+
 </style>
 </head>
 <body>
@@ -760,6 +790,7 @@ button:disabled { cursor: not-allowed; }
     <button class="nav" data-page="chat"><i data-ic="chat"></i>Playground<kbd>4</kbd></button>
     <button class="nav" data-page="connect"><i data-ic="plug"></i>Connect<kbd>5</kbd></button>
     <button class="nav" data-page="logs"><i data-ic="terminal"></i>Logs<kbd>6</kbd></button>
+    <button class="nav" data-page="code"><i data-ic="code"></i>Code swarms<kbd>8</kbd></button>
     <button class="nav" data-page="access"><i data-ic="lock"></i>Access & keys<kbd>7</kbd></button>
   </nav>
   <div class="sidebar-foot">Provider credentials stay on your server.</div>
@@ -801,7 +832,7 @@ button:disabled { cursor: not-allowed; }
 
   <section class="grid kpis token-kpis" aria-label="Token usage since router start">
     <div class="kpi"><div class="label"><i data-ic="coins"></i>Tokens used</div><div class="value" id="k-tokens">0</div><div class="sub" id="k-tokens-sub">Since router start</div></div>
-    <div class="kpi"><div class="label"><i data-ic="gauge"></i>Est. tokens left</div><div class="value" id="k-tokens-left">Unknown</div><div class="sub" id="k-tokens-left-sub">Awaiting provider limit reports</div></div>
+    <div class="kpi"><div class="label"><i data-ic="gauge"></i>Tokens remaining</div><div class="value" id="k-tokens-left">–</div><div class="sub" id="k-tokens-left-sub">No provider reports yet</div></div>
     <div class="kpi"><div class="label"><i data-ic="in"></i>Input tokens</div><div class="value" id="k-input">0</div><div class="sub">Includes cached input</div></div>
     <div class="kpi"><div class="label"><i data-ic="out"></i>Output tokens</div><div class="value" id="k-output">0</div><div class="sub">Generated responses and tool calls</div></div>
   </section>
@@ -894,6 +925,13 @@ button:disabled { cursor: not-allowed; }
     </article>
 
   </section>
+  <section id="page-code" hidden>
+    <div class="code-intro card"><div><span class="tag ok">LOCAL REPOSITORIES · FREE MODEL ROUTES</span><h2>One task. A crew of coding agents.</h2><p>Your PC runs the agents — built-in, Claude Code, Codex or OpenCode — each in its own Git worktree. Your VPS routes every model request to free models and shows progress here. Review the combined changes before applying them.</p></div><div class="code-download"><label class="field">Your PC<select id="code-os"><option value="macos-aarch64">macOS · Apple silicon</option><option value="macos-x86_64">macOS · Intel</option><option value="linux-x86_64">Linux · x86_64</option><option value="linux-aarch64">Linux · ARM64</option><option value="windows-x86_64">Windows · x86_64</option></select></label><a class="btn primary" id="code-download" href="#">Download Tako Code</a></div></div>
+    <div class="card code-onboard"><h2>Connect your PC once</h2><ol class="provider-steps"><li>Install Tako Code on your PC with the command below. It is a single executable: no Python needed. Git is required.</li><li>Run <code>tako-code</code> inside a Git repository. The first time, it asks for this server address and a client key from Access & keys. Provider keys stay on the VPS.</li><li>Type what you want built right in the terminal, or start swarms here while it is open. This page shows your PC when it connects.</li></ol><pre id="code-setup-commands"></pre><div class="toolbar"><button class="btn" id="code-copy-setup">Copy setup commands</button><span class="detail">No inbound PC port required. Prefer Python? <a href="/downloads/tako-code.py" download="tako-code.py">Get the script</a> and run it with Python 3.11+.</span></div></div>
+    <div class="code-layout"><article class="card"><h2>Start a swarm</h2><form id="code-form"><label class="field">Connected PC<select id="code-runner" required></select></label><label class="field">Local project<select id="code-project" required></select></label><div class="code-form-row"><label class="field">Worker engine<select id="code-engine"><option value="builtin">Built-in coding agents</option></select></label><label class="field">Parallel agents<select id="code-workers"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label></div><label class="field">What should the team build?<textarea id="code-task" rows="6" maxlength="16000" required placeholder="Describe the change, expected behavior, and how to check it…"></textarea></label><p class="detail">Planner → isolated workers → review branch → configured tests → code review. No paid-model fallback. Provider free-tier eligibility and quotas still apply.</p><button class="btn primary" id="code-start">Start coding swarm</button><p id="code-error" class="inline-error" role="alert"></p></form></article><article class="card"><h2>Your swarms<button class="btn sm" id="code-refresh">Refresh</button></h2><div id="code-jobs" class="code-jobs"><p class="detail">No jobs yet. Connect a PC to begin.</p></div></article></div>
+    <article class="card" id="code-detail" hidden></article>
+  </section>
+
   <section id="page-access" hidden>
     <div class="access-summary">
       <article class="card access-card"><h2>Web panel</h2><p id="security-note">Checking password protection…</p><div class="detail">Set or reset the admin password in your server terminal.</div><pre>tako password</pre></article>
@@ -1105,13 +1143,20 @@ button:disabled { cursor: not-allowed; }
     // Use one observation: targets and keys can share the same quota.
     const latestLimit = limits.filter(([, q]) => Number.isFinite(q.remaining) && q.remaining >= 0)
       .reduce((latest, entry) => !latest || entry[1].observed_at > latest[1].observed_at ? entry : latest, null);
-    $("k-tokens-left").textContent = latestLimit ? `~${latestLimit[1].remaining.toLocaleString()}` : "Unknown";
+    const usedProviders = [...new Set(Object.keys(s.token_targets || {}).map(target => target.split('/')[0]))];
+    const hasTraffic = rq.total > 0 || usedProviders.length > 0;
+    const noLimitMessage = hasTraffic
+      ? `${usedProviders.length ? usedProviders.join(', ') : 'Providers used'}: no token limit reported. Check your provider account for quota; tokens used alone cannot determine what remains.`
+      : 'Send a request to check whether your provider reports a token limit.';
+    $("k-tokens-left").textContent = latestLimit ? `~${latestLimit[1].remaining.toLocaleString()}` : hasTraffic ? "Not reported" : "–";
+    $("k-tokens-left").classList.toggle("unreported", !latestLimit && hasTraffic);
     $("k-tokens-left-sub").textContent = latestLimit
       ? `${latestLimit[0]} · reported ${fmtDur(Math.max(0, Date.now() / 1000 - latestLimit[1].observed_at))} ago · may share quota`
-      : "Awaiting provider limit reports";
+      : hasTraffic ? 'Provider did not report a remaining allowance' : 'No provider reports yet';
+    $("k-tokens-left").parentElement.title = latestLimit ? 'Latest reported rate-limit window; quotas may be shared across targets.' : noLimitMessage;
     $("token-limits").innerHTML = limits.length ? limits.map(([key, q]) =>
       `<tr><td class="mono">${esc(key)}</td><td class="num">${q.remaining.toLocaleString()}</td><td class="num">${q.limit == null ? "Unknown" : q.limit.toLocaleString()}</td><td>${esc(q.reset || "Unknown")}</td><td>${esc(fmtDur(Math.max(0, Date.now() / 1000 - q.observed_at)))} ago</td></tr>`
-    ).join("") : `<tr><td colspan="5" class="empty">Unknown — providers have not reported token limits yet.</td></tr>`;
+    ).join("") : `<tr><td colspan="5" class="empty">${esc(noLimitMessage)}</td></tr>`;
 
     // cooldowns
     deadlines = {};
@@ -1782,6 +1827,7 @@ button:disabled { cursor: not-allowed; }
     chat: ['Playground', 'Try your routes in a conversation, with real fallback and key rotation.', null],
     connect: ['One router. Your favorite tools.', 'Connect an editor or app to your models in a few steps.', null],
     access: ['Access & keys', 'Protect your panel. Give every app its own key.', null],
+    code: ['Tako Code', 'Coding swarms on your PC. Free-model routing on your VPS.', null],
     logs: ['Router logs', 'A closer look at what’s happening under the hood.', 'Refresh logs'],
   };
   function navigate(next) {
@@ -1802,6 +1848,7 @@ button:disabled { cursor: not-allowed; }
     renderWorkspace(true);
     if (page === 'logs') loadLogs();
     if (page === 'access') loadSecurity();
+    if (page === 'code') loadCode();
   }
   function moveIndicator() {
     const a = document.querySelector('.nav.active'), ind = document.querySelector('.nav-ind'); if (!a || !ind) return;
@@ -1809,10 +1856,10 @@ button:disabled { cursor: not-allowed; }
   }
   addEventListener('resize', moveIndicator);
   // keyboard: 1–6 switch pages when not typing
-  const pageKeys = ['dashboard', 'providers', 'routes', 'chat', 'connect', 'logs', 'access'];
+  const pageKeys = ['dashboard', 'providers', 'routes', 'chat', 'connect', 'logs', 'access', 'code'];
   document.addEventListener('keydown', e => {
     if (e.metaKey || e.ctrlKey || e.altKey || $('modal').open || !$('cmdk').hidden || drawerReq || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) return;
-    const n = Number(e.key); if (n >= 1 && n <= 7) navigate(pageKeys[n - 1]);
+    const n = Number(e.key); if (n >= 1 && n <= 8) navigate(pageKeys[n - 1]);
   });
 
   // ---- request inspector ----
@@ -2308,6 +2355,75 @@ button:disabled { cursor: not-allowed; }
   $('log-search').oninput = renderLogs; $('log-follow').onchange = renderLogs;
   $('logs-copy').onclick = () => copyText(visibleLogs().join('\n'));
   setInterval(() => { if (page === 'logs' && $('log-follow').checked && !document.hidden) loadLogs(); }, 3000);
+  // ---- PC coding swarms: all execution stays on outbound-connected local runners ----
+  let codeState = {runners: [], jobs: []}, codeSelected = null, codeLoading = false;
+  const codeTerminal = new Set(['ready', 'needs_attention', 'failed', 'cancelled', 'applied']);
+  async function codeAction(data) {
+    return requestJSON('/api/code/action', {method:'POST', headers:{'content-type':'application/json','x-tako':'1'}, body:JSON.stringify(data)});
+  }
+  async function loadCode() {
+    if (codeLoading) return; codeLoading = true;
+    try {
+      codeState = await getJSON('/api/code');
+      const select = $('code-runner'), old = select.value;
+      select.innerHTML = codeState.runners.length ? codeState.runners.map(r => `<option value="${esc(r.id)}">${esc(r.name)}${r.online ? '' : ' · offline'}</option>`).join('') : '<option value="">No PC connected</option>';
+      select.value = codeState.runners.some(r => r.id === old) ? old : (codeState.runners[0]?.id || '');
+      if (!codeSelected && codeState.jobs.length) codeSelected = codeState.jobs[0].id;
+      codeProjects(); renderCodeJobs();
+      if (codeSelected) await loadCodeJob(codeSelected);
+      $('code-error').textContent = '';
+    } catch(e) { $('code-error').textContent = e.message; }
+    finally { codeLoading = false; }
+  }
+  function codeProjects() {
+    const runner = codeState.runners.find(r => r.id === $('code-runner').value), select = $('code-project'), old = select.value;
+    const projects = runner?.projects || [];
+    select.innerHTML = projects.length ? projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('') : '<option value="">Register a project on this PC</option>';
+    select.value = projects.some(p => p.id === old) ? old : (projects[0]?.id || '');
+    const engine = $('code-engine'), previous = engine.value, names = {builtin:'Built-in coding agents',opencode:'OpenCode',claude:'Claude Code',codex:'Codex CLI'};
+    engine.innerHTML = (runner?.engines || ['builtin']).map(e => `<option value="${esc(e)}">${esc(names[e] || e)}</option>`).join('');
+    if ((runner?.engines || []).includes(previous)) engine.value = previous;
+    $('code-start').disabled = !runner?.online || !projects.length;
+  }
+  function renderCodeJobs() {
+    $('code-jobs').innerHTML = codeState.jobs.length ? codeState.jobs.map(j => `<button class="code-job ${j.id === codeSelected ? 'selected' : ''}" data-code-job="${esc(j.id)}"><span class="code-phase ${esc(j.phase)}">${esc(j.phase.replaceAll('_',' '))}</span><strong>${esc(j.task.slice(0,130))}</strong><span class="detail">${esc(codeState.runners.find(r=>r.id===j.runner)?.name || 'PC')} · ${esc(j.engine)} · ${j.workers_requested} agents</span></button>`).join('') : '<p class="detail">Your first coding swarm will appear here.</p>';
+    $('code-jobs').querySelectorAll('[data-code-job]').forEach(b => b.onclick = () => { codeSelected=b.dataset.codeJob;renderCodeJobs();loadCodeJob(codeSelected).catch(e=>toast(e.message)); });
+  }
+  async function loadCodeJob(id) {
+    const j = await codeAction({action:'job',id}); if (id !== codeSelected) return;
+    const box = $('code-detail'); box.hidden = false;
+    const signature = JSON.stringify(j); if (box.dataset.snapshot === signature) return; box.dataset.snapshot = signature;
+    const tests = j.tests || [], testsText = !tests.length ? 'No validation commands configured on the PC.' : tests.map(t => `${t.exit_code === 0 ? 'PASS' : 'FAIL'} · ${t.command.join(' ')}\n${t.output || ''}`).join('\n\n');
+    box.innerHTML = `<h2><span class="code-phase ${esc(j.phase)}">${esc(j.phase.replaceAll('_',' '))}</span> ${esc(j.task.slice(0,90))}<span class="spacer"></span>${!codeTerminal.has(j.phase) ? `<button class="btn danger" id="code-cancel">${j.cancel ? 'Cancellation requested' : 'Cancel swarm'}</button>` : ''}</h2><p class="detail">${esc(j.branch || 'Preparing local worktrees')} · ${esc(j.id)}</p>${j.error ? `<p class="inline-error">${esc(j.error)}</p>` : ''}<div class="code-agents">${(j.workers || []).map(w=>`<div class="code-agent"><span class="number">${esc(w.id)}</span><strong>${esc(w.title)}</strong><span class="code-phase ${esc(w.phase)}">${esc(w.phase)}</span>${w.error?`<p class="inline-error">${esc(w.error)}</p>`:''}</div>`).join('')}</div><details open><summary>Activity</summary><div class="code-events">${(j.events || []).slice(-60).map(e=>`<div><time>${new Date(e.time*1000).toLocaleTimeString()}</time><span>${e.worker ? 'Agent '+esc(e.worker)+' · ' : ''}${esc(e.message)}</span></div>`).join('')}</div></details><details ${j.review ? 'open' : ''}><summary>Review</summary><pre>${esc(j.review || 'The review appears after workers finish.')}</pre></details><details><summary>Configured tests</summary><pre>${esc(testsText)}</pre></details><details ${j.diff ? 'open' : ''}><summary>Proposed changes${j.diff_truncated?' · preview truncated; full patch is on your PC':''}</summary><pre class="code-diff">${esc(j.diff || 'No combined patch yet.')}</pre></details>${j.phase === 'ready' ? `<div class="code-apply"><h3>Review, then apply on your PC</h3><p>Your original checkout has not been changed. The apply command refuses dirty checkouts or a branch that moved.</p><pre>${esc(j.apply_command || '')}</pre><button class="btn primary" id="code-copy-apply">Copy apply command</button></div>` : ''}`;
+    if ($('code-cancel')) $('code-cancel').onclick=async()=>{try{await codeAction({action:'cancel',id});await loadCodeJob(id);}catch(e){toast(e.message);}};
+    if ($('code-copy-apply')) $('code-copy-apply').onclick=()=>copyText(j.apply_command);
+  }
+  $('code-runner').onchange=codeProjects;
+  $('code-refresh').onclick=loadCode;
+  // Standalone executables from the release; the terminal download avoids browser quarantine on macOS.
+  const codeRelease='https://github.com/real-kijmoshi/tako/releases/latest/download/';
+  function codeSetup() {
+    const os=$('code-os').value, win=os.startsWith('windows'), asset=`tako-code-${os}${win?'.exe':''}`;
+    $('code-download').href=codeRelease+asset;
+    const get=win?`irm ${codeRelease}install-code.ps1 | iex`:`curl -fsSL ${codeRelease}install-code.sh | sh`;
+    const repo=win?'C:\\path\\to\\your\\repo':'~/path/to/your/repo';
+    $('code-setup-commands').textContent=`${get}\ncd ${repo}\ntako-code\n# First run asks for this server: ${location.origin}\n# and a client key from Access & keys. Then type what you want built.`;
+  }
+  {
+    const ua=navigator.userAgent||'', guess=/Windows/.test(ua)?'windows-x86_64':/Mac OS X|Macintosh/.test(ua)?'macos-aarch64':/aarch64|arm64/i.test(ua)?'linux-aarch64':/Linux/.test(ua)?'linux-x86_64':'macos-aarch64';
+    $('code-os').value=guess; $('code-os').onchange=codeSetup; codeSetup();
+  }
+  $('code-copy-setup').onclick=()=>copyText($('code-setup-commands').textContent);
+  $('code-form').onsubmit=async e=>{
+    e.preventDefault();$('code-start').disabled=true;$('code-error').textContent='';
+    try {
+      const j=await codeAction({action:'create',runner:$('code-runner').value,project:$('code-project').value,engine:$('code-engine').value,workers:Number($('code-workers').value),task:$('code-task').value.trim()});
+      codeSelected=j.id;$('code-task').value='';await loadCode();toast('Swarm queued on your PC');
+    } catch(e) { $('code-error').textContent=e.message; }
+    finally { codeProjects(); }
+  };
+  setInterval(()=>{if(page==='code'&&!document.hidden)loadCode();},2500);
+
   getJSON('/api/catalog').then(v => { catalog = v; renderWorkspace(true); }).catch(() => toast('Provider catalog unavailable. You can still add a custom provider.'));
   navigate(location.hash.slice(1));
 

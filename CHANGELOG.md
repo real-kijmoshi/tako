@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.9 — 2026-11-16
+
+- Run `tako-code` with no arguments for an interactive swarm screen: the first run asks for the server URL and client key, the Git repository in the current directory is used automatically, and you type tasks instead of using the web panel. Agents default to Claude Code when it is installed.
+- Show each agent live while a swarm runs (what it is editing or running), then a summary with changed files, test results and the model review. `/apply`, `/diff`, `/agents`, `/engine`, `/tests` and `/project` work from the same prompt; Ctrl+C cancels.
+- Record swarms typed in the terminal on the server, so the web panel lists them; swarms started from the web panel still run on the PC while the terminal screen is open.
+- Add one-line installers, `install-code.sh` and `install-code.ps1`, published with each release. They verify the checksum and put `tako-code` on your PATH.
+- Fix agents occasionally failing to start when several Git worktrees were created at the same moment.
+
+## 0.1.8 — 2026-11-16
+
+- Ship Tako Code as standalone executables for macOS (Apple silicon, Intel), Linux (x86_64, ARM64) and Windows (x86_64). No Python is needed to run it.
+- Show per-OS download and copyable install/setup commands on the Code swarms page; the Python script remains as an alternative.
+- Make `tako code` run the `tako-code` executable found next to `tako` or on PATH, and explain where to get it when it is missing.
+- Generate `tako-code apply JOB_ID` commands that work from the executable.
+
+## 0.1.7 — 2026-11-16
+
+- Add Tako Code, a separate PC client (`tako-code.pyz`, also `tako code`) that runs coding swarms on your own computer: a planner splits the task, 1–6 workers run in parallel Git worktrees, and the coordinator merges, runs locally configured tests and requests a review before you apply.
+- Add a **Code swarms** page to the web UI to pair PCs, start swarms, watch each agent, read the patch, tests and review, cancel, and copy the apply command. Serve the client download from `/downloads/tako-code.py`.
+- Support built-in, Claude Code, Codex CLI and OpenCode workers. Each external CLI gets a private home and is pointed at the Tako gateway.
+- Add a free-only gateway under `/code/v1` (chat completions, Anthropic messages and the Responses API). It ignores requested model names, aliases and the default route, and never falls back to paid models.
+- Add an OpenAI Responses API adapter so Codex CLI can work on free chat-completion models, including streaming events, function calls and Codex's freeform `apply_patch` tool.
+- Show "Not reported" instead of "Unknown" when providers send no remaining-token limits, and explain why usage alone cannot determine what remains.
+- Build and checksum `tako-code.pyz` with each release; run the Tako Code tests in CI and `scripts/check-release.sh`.
+
 ## 0.1.6 — 2026-11-16
 
 - Correct Nous Portal’s API access classification: obtaining a key requires credits or a plan; exclude Nous targets from free routes even when their IDs end in :free.

@@ -133,6 +133,26 @@ each client. Public listeners require an admin password. The repository includes
 [Caddy](deploy/Caddyfile) and [systemd](deploy/tako.service) examples; follow the
 [VPS guide](docs/guide.md#host-on-a-vps) for setup and security details.
 
+## Tako Code: coding swarms on your PC
+
+Install Tako Code on your computer, run it in a project, and type what you want
+built. It spins up several **Claude Code** agents at once (or **Codex CLI**,
+**OpenCode** or a built-in agent), each in its own Git worktree, then merges their
+work, runs your tests and reviews it before you apply it. Every model request goes
+through your Tako server to free models only, with no paid fallback.
+
+```sh
+curl -fsSL https://github.com/real-kijmoshi/tako/releases/latest/download/install-code.sh | sh
+cd ~/code/my-app
+tako-code        # first run asks for your server URL and a client key
+```
+
+On Windows: `irm https://github.com/real-kijmoshi/tako/releases/latest/download/install-code.ps1 | iex`.
+It's a single executable: no Python needed, just Git. Swarms started in the
+terminal also appear on the **Code swarms** page of your web panel, and you can
+start them from there too. See the [Tako Code guide](code/README.md) for
+commands, engines, safety limits and privacy.
+
 ## Smart routes
 
 Instead of a fixed combo, ask for a model by what you need: `pool:task`.
@@ -168,6 +188,7 @@ Settings live in `~/.config/tako/config.toml`. Use `TAKO_HOME` for another direc
 | --- | --- |
 | `tako` / `tako web` | Terminal / web dashboard |
 | `tako claude [combo] [args]` | Launch Claude Code through Tako |
+| `tako code [args]` | Run the Tako Code PC client (coding swarms) |
 | `tako start` / `stop` / `restart` | Manage the background router |
 | `tako status` / `tako logs -f` | Inspect traffic and follow logs |
 | `tako config` / `tako check` | Edit / validate configuration |

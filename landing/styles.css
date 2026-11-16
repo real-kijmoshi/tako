@@ -119,6 +119,20 @@ h2{font:normal clamp(34px,4vw,50px)/1.1 var(--serif);letter-spacing:-.035em;marg
 .terminal-foot button{border:1px solid #5b685d;background:transparent;color:var(--term-text);padding:7px 12px;border-radius:6px;font-size:13px;white-space:nowrap}
 .terminal-foot button:hover{background:#2f3a33}
 
+/* Tako Code swarm */
+.swarm{display:grid;grid-template-columns:.95fr 1fr;gap:88px;align-items:center;border-top:1px solid var(--line)}
+.code-get{margin-top:30px;display:grid;gap:12px;justify-items:start}
+.code-get>span{font:12px var(--mono);text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+.os-links{display:flex;flex-wrap:wrap;gap:8px}
+.os-links a{border:1px solid var(--line-2);background:var(--card);padding:7px 11px;border-radius:7px;font-size:13px}
+.os-links a:hover{border-color:var(--blue);color:var(--blue)}
+.code-get code{font:13px var(--mono);background:var(--chip);padding:5px 9px;border-radius:6px;overflow-wrap:anywhere}
+.section-heading code.inline{font:14px var(--mono);background:var(--chip);padding:1px 6px;border-radius:5px;color:var(--ink)}
+.code-get .text-link{margin-top:6px}
+#swarm .agent{display:flex;gap:10px}
+#swarm .agent .engine{color:var(--term-dim);min-width:8.5em}
+.next a code{color:var(--blue)}
+
 /* Features */
 .features{border-top:1px solid var(--line);display:grid;grid-template-columns:.8fr 1.2fr;gap:80px}
 .feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -176,12 +190,12 @@ footer>div{display:flex;gap:24px;margin-left:auto;font-size:13px;color:var(--mut
   .hero{gap:32px}
   .clients>span{padding:8px;font-size:12px}
   .routing{padding-left:14px;padding-right:14px}
-  .how,.features,.install,.faq{gap:48px}
+  .how,.swarm,.features,.install,.faq{gap:48px}
   .compat{flex-direction:column;align-items:flex-start;gap:8px}
   .compat i{margin:0 8px}
 }
 @media(max-width:820px){
-  .hero,.how,.features,.install,.faq{grid-template-columns:1fr}
+  .hero,.how,.swarm,.features,.install,.faq{grid-template-columns:1fr}
   .routing{width:100%;max-width:520px}
 }
 @media(max-width:720px){
@@ -203,7 +217,7 @@ footer>div{display:flex;gap:24px;margin-left:auto;font-size:13px;color:var(--mut
   .compat p{line-height:2;font-size:14px}
   .compat i{margin:0 5px}
   .section{padding-top:60px;padding-bottom:60px}
-  .how,.features,.install,.faq{gap:32px}
+  .how,.swarm,.features,.install,.faq{gap:32px}
   .feature-grid{grid-template-columns:1fr}
   .terminal-body{font-size:12.5px;padding:18px}
   .terminal-foot{flex-wrap:wrap}

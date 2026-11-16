@@ -1,12 +1,12 @@
 [package]
 name = "tako"
-version = "0.1.6"
+version = "0.1.9"
 edition = "2021"
 description = "A tiny AI router: one endpoint, many providers, automatic fallback."
 license = "MIT"
 repository = "https://github.com/real-kijmoshi/tako"
 readme = "README.md"
-include = ["/assets/**", "/src/**", "/Cargo.toml", "/Cargo.lock", "/README.md", "/LICENSE", "/CHANGELOG.md", "/deploy/**"]
+include = ["/assets/**", "/code/**", "/src/**", "/Cargo.toml", "/Cargo.lock", "/README.md", "/LICENSE", "/CHANGELOG.md", "/deploy/**"]
 
 [dependencies]
 tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "net", "time", "signal", "sync", "macros"] }

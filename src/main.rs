@@ -1,11 +1,13 @@
 mod auth;
 mod auto_update;
 mod catalog;
+mod codehub;
 mod config;
 mod daemon;
 mod dashboard;
 mod edit;
 mod failure;
+mod responses;
 mod route;
 mod server;
 mod settings;
@@ -21,6 +23,7 @@ tako: one local endpoint for all your AI providers, with automatic fallback
 usage: tako [command]     (no command opens the dashboard)
 
   claude       launch Claude Code through tako (starts tako if needed)
+  code         run the Tako Code PC client (coding swarms; uses tako-code if installed)
   web          open the web dashboard in your browser (starts tako if needed)
 
   start        start in the background
@@ -57,6 +60,7 @@ fn main() {
     let r = match cmd {
         "tui" | "ui" | "dash" => tui::run(),
         "claude" => daemon::claude(&args[1..]),
+        "code" => code_command(&args[1..]),
         "web" | "browser" | "open" => daemon::web(),
         "run" => server::run(),
         "start" => done(daemon::start()),
@@ -100,6 +104,42 @@ fn main() {
         eprintln!("{} {e}", util::red("error:"));
         std::process::exit(1);
     }
+}
+
+fn code_command(args: &[String]) -> Result<(), String> {
+    use std::os::unix::process::CommandExt;
+    let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+    // Prefer the standalone executable (no Python needed): next to tako, then on PATH.
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    let native = std::iter::once(executable.with_file_name("tako-code"))
+        .chain(std::env::split_paths(&path).map(|d| d.join("tako-code")))
+        .find(|p| p.is_file());
+    if let Some(native) = native {
+        return Err(format!(
+            "Cannot start Tako Code: {}",
+            std::process::Command::new(native).args(args).exec()
+        ));
+    }
+    let beside = executable.with_file_name("tako-code.pyz");
+    let source = executable.with_file_name("tako-code.py");
+    let script = if beside.is_file() {
+        beside
+    } else if source.is_file() {
+        source
+    } else {
+        let path = config::dir().join("code-client.py");
+        std::fs::create_dir_all(config::dir()).map_err(|e| e.to_string())?;
+        std::fs::write(&path, include_str!("../code/tako_code.py")).map_err(|e| e.to_string())?;
+        path
+    };
+    let error = std::process::Command::new("python3")
+        .arg(script)
+        .args(args)
+        .exec();
+    Err(format!(
+        "Cannot start Tako Code ({error}). Install the standalone tako-code executable from \
+         https://github.com/real-kijmoshi/tako/releases/latest and put it next to tako or on PATH."
+    ))
 }
 
 fn setup_vps(args: &[String]) -> Result<(), String> {
