@@ -716,7 +716,7 @@ def run(c, once=False):
             try:
                 runner.tick()
             except CodeError as e:
-                print(str(e), file=sys.stderr, flush=True)
+                print(clean(e), file=sys.stderr, flush=True)
                 if once:
                     raise
             if once and not runner.active:
@@ -767,6 +767,17 @@ def enable_terminal():
     with contextlib.suppress(AttributeError, ValueError):
         sys.stdout.reconfigure(errors="replace")
 
+CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+CONTROL_LINE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+def clean(text, multiline=False):
+    """Strip terminal control characters (ESC, CSI, BEL…) from model, agent, test or server text.
+
+    Without this, a model could print escape sequences that rewrite the screen or set the clipboard.
+    """
+    text = str(text).replace("\t", "    ")
+    return CONTROL.sub("", text) if multiline else CONTROL_LINE.sub(" ", text)
+
 def short_path(value):
     parts = Path(str(value)).parts
     return str(Path(*parts[-2:])) if len(parts) > 2 else str(value)
@@ -774,7 +785,7 @@ def short_path(value):
 def first_line(text, limit=120):
     for line in str(text).splitlines():
         if line.strip():
-            return line.strip()[:limit]
+            return clean(line.strip())[:limit]
     return ""
 
 def activity(line):
@@ -821,7 +832,7 @@ def activity(line):
     return None
 
 def clip(text, width):
-    text = str(text)
+    text = clean(text)
     return text if len(text) <= width else text[:max(0, width - 1)] + "…"
 
 def elapsed(seconds):
@@ -879,11 +890,11 @@ def watch(swarm):
             if text:
                 acts[worker] = text
                 if not screen.live:
-                    print(f"  agent {worker}: {text}", flush=True)
+                    print(f"  agent {worker}: {clean(text)}", flush=True)
         elif message:
             notes.append(message)
             if not screen.live:
-                print("  · " + message, flush=True)
+                print("  · " + clean(message), flush=True)
 
     swarm.listener = listener
     frame = 0
@@ -922,17 +933,17 @@ def summary(swarm):
                 print("  " + clip(line, shutil.get_terminal_size().columns - 3))
         print(paint("2", "\n  /apply puts the changes on your branch · /diff shows them · or type a new task"))
     elif phase == "needs_attention":
-        print(paint("33;1", "! Needs attention: ") + str(s.get("error") or "tests failed"))
+        print(paint("33;1", "! Needs attention: ") + clean(s.get("error") or "tests failed"))
         failed = [t for t in s.get("tests") or [] if t.get("exit_code")]
         for t in failed[:1]:
-            print(paint("2", "  $ " + " ".join(t["command"])))
+            print(paint("2", "  $ " + clean(" ".join(t["command"]))))
             for line in str(t.get("output", "")).splitlines()[-12:]:
-                print("    " + line)
+                print("    " + clean(line))
         print(paint("2", f"  Review branch {s.get('branch', '')} is kept; /diff shows the changes."))
     elif phase == "cancelled":
         print(paint("33", "⊘ Cancelled. Worktrees are kept under " + str(swarm.folder)))
     else:
-        print(paint("31;1", "✗ Failed: ") + str(s.get("error") or "see the activity above"))
+        print(paint("31;1", "✗ Failed: ") + clean(s.get("error") or "see the activity above"))
 
 def pair(url, key, name):
     """Connect this PC to a VPS and save the configuration."""
@@ -997,7 +1008,7 @@ def show_diff(job_id):
     if not patch.exists():
         print("  No changes recorded for this swarm.")
         return
-    for line in patch.read_text(encoding="utf-8", errors="replace").splitlines():
+    for line in clean(patch.read_text(encoding="utf-8", errors="replace"), multiline=True).splitlines():
         color = "32" if line.startswith("+") and not line.startswith("+++") else "31" if line.startswith("-") and not line.startswith("---") else "36" if line.startswith("@@") else "1" if line.startswith("diff ") else ""
         print(paint(color, line) if color else line)
 
@@ -1088,7 +1099,7 @@ def tui():
                         else:
                             print("  Unknown command. Type /help.")
                     except CodeError as e:
-                        print(paint("31", "  " + str(e)))
+                        print(paint("31", "  " + clean(e)))
                     continue
                 # Anything else is a task for the swarm.
                 try:
@@ -1099,7 +1110,7 @@ def tui():
                         raise CodeError("Your repository has uncommitted changes. Commit or stash them first; agents start from your last commit.")
                     last = runner.submit(pid, engine, workers, line)
                 except CodeError as e:
-                    print(paint("31", "  " + str(e)))
+                    print(paint("31", "  " + clean(e)))
                     continue
                 watch(last)
         finally:
@@ -1178,5 +1189,5 @@ if __name__ == "__main__":
     try:
         main()
     except (CodeError, OSError, subprocess.SubprocessError) as error:
-        print("tako-code: " + str(error), file=sys.stderr)
+        print("tako-code: " + clean(error), file=sys.stderr)
         sys.exit(1)

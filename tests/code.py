@@ -115,6 +115,20 @@ class Client(unittest.TestCase):
         self.assertEqual(code.activity('read_file a.txt'), 'read_file a.txt')
         self.assertIsNone(code.activity(json.dumps({'type': 'system', 'subtype': 'init'})))
         self.assertIsNone(code.activity(''))
+    def test_untrusted_text_cannot_drive_the_terminal(self):
+        evil = 'ok\x1b]52;c;cGF3bmVk\x07\x1b[2J\x9b31m\rdone'
+        for text in [code.activity(evil), code.activity(json.dumps({'type': 'item.completed', 'item': {'type': 'agent_message', 'text': evil}})),
+                     code.clip(evil, 200), code.first_line(evil)]:
+            self.assertFalse(any(ch in text for ch in '\x1b\x07\x9b\r'), repr(text))
+        lines = code.board({'task': evil, 'engine': 'claude', 'workers': [{'id': 1, 'title': evil, 'phase': 'failed', 'error': evil}]}, {}, [evil], time.monotonic())
+        self.assertTrue(all('\x1b]' not in l and '\x07' not in l and '\x1b[2J' not in l for l in lines), lines)
+        (code.HOME / 'jobs' / 'abc').mkdir(parents=True)
+        (code.HOME / 'jobs' / 'abc' / 'changes.patch').write_text('+line\x1b]52;c;eA==\x07\n')
+        with patch('builtins.print') as shown:
+            code.show_diff('abc')
+        printed = ''.join(str(c.args[0]) for c in shown.call_args_list)
+        self.assertNotIn('\x07', printed)
+        self.assertNotIn('\x1b]', printed, 'escape introducer removed; leftover text is inert')
     def test_board_fits_the_terminal(self):
         state = {'task': 'x' * 300, 'engine': 'claude', 'phase': 'working', 'workers': [
             {'id': 1, 'title': 'A very long worker title that goes on and on', 'phase': 'working'},
