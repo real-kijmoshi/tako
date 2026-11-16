@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.13 — 2026-11-16
+
+- Fix HTTPS in the macOS and Linux Tako Code executables: they looked for trusted certificates where the build machine kept them, so connecting to an `https://` server and self-update failed with `CERTIFICATE_VERIFY_FAILED`. They now use the system's certificate bundle, with certifi bundled as a fallback. Windows was not affected.
+- Check HTTPS inside every built executable before a release is published.
+
 ## 0.1.12 — 2026-11-16
 
 - Explain why an agent stopped: Claude Code, Codex and OpenCode errors (for example `API Error: 429 …` or the turn limit) replace "claude exited with 1; inspect the worker events".

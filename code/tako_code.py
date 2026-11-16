@@ -17,6 +17,7 @@ import shutil
 import shlex
 import signal
 import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -27,7 +28,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.1.12"
+VERSION = "0.1.13"
 TERMINAL = {"ready", "needs_attention", "failed", "cancelled", "applied"}
 HOME = Path(os.environ.get("TAKO_CODE_HOME", Path.home() / ".config" / "tako-code"))
 DENIED = {".git", ".env", ".env.local", ".env.production", ".ssh", ".aws", ".npmrc", ".pypirc"}
@@ -87,6 +88,35 @@ class SameOriginRedirect(urllib.request.HTTPRedirectHandler):
             raise CodeError("VPS redirected to a different origin; use its canonical HTTPS URL")
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
+# Where systems keep their trusted certificates. A frozen executable's Python looks where
+# the build machine kept them, which usually does not exist on the user's computer.
+CA_FILES = ["/etc/ssl/cert.pem", "/etc/ssl/certs/ca-certificates.crt", "/etc/pki/tls/certs/ca-bundle.crt",
+            "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", "/etc/ssl/ca-bundle.pem", "/usr/local/etc/openssl/cert.pem",
+            "/opt/homebrew/etc/openssl@3/cert.pem", "/usr/local/etc/openssl@3/cert.pem"]
+_TLS = None
+
+def tls():
+    """An HTTPS context that verifies certificates, with trusted roots found wherever this system keeps them."""
+    global _TLS
+    if _TLS is None:
+        ctx = ssl.create_default_context()
+        found = ssl.get_default_verify_paths()
+        usable = (found.cafile and os.path.isfile(found.cafile)) or (found.capath and os.path.isdir(found.capath) and any(os.scandir(found.capath)))
+        if os.name != "nt" and not usable:  # Windows reads its own certificate store
+            for path in CA_FILES:
+                if os.path.isfile(path):
+                    ctx.load_verify_locations(cafile=path)
+                    break
+            else:
+                with contextlib.suppress(ImportError, OSError):
+                    import certifi  # bundled into the release executables as a fallback
+                    ctx.load_verify_locations(cafile=certifi.where())
+        _TLS = ctx
+    return _TLS
+
+def opener(*handlers):
+    return urllib.request.build_opener(*handlers, urllib.request.HTTPSHandler(context=tls()))
+
 class Api:
     def __init__(self, c):
         self.c = c
@@ -109,7 +139,7 @@ class Api:
             "User-Agent": "tako-code/" + VERSION,
         })
         try:
-            with urllib.request.build_opener(SameOriginRedirect()).open(req, timeout=timeout) as r:
+            with opener(SameOriginRedirect()).open(req, timeout=timeout) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
             raise self.http_error(e) from None
@@ -151,7 +181,7 @@ class Api:
             "Accept": "text/event-stream", "User-Agent": "tako-code/" + VERSION,
         })
         try:
-            r = urllib.request.build_opener(SameOriginRedirect()).open(req, timeout=180)
+            r = opener(SameOriginRedirect()).open(req, timeout=180)
         except urllib.error.HTTPError as e:
             raise self.http_error(e) from None
         except (urllib.error.URLError, TimeoutError, OSError) as e:
@@ -1307,7 +1337,7 @@ def asset_name():
 
 def fetch(url, limit=300 << 20, timeout=60):
     req = urllib.request.Request(url, headers={"User-Agent": "tako-code/" + VERSION})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with opener().open(req, timeout=timeout) as r:
         data = r.read(limit + 1)
     if len(data) > limit:
         raise CodeError("Download is unexpectedly large")
@@ -1316,7 +1346,7 @@ def fetch(url, limit=300 << 20, timeout=60):
 def latest_tag(timeout=5):
     # /releases/latest redirects to /releases/tag/vX.Y.Z: no API token or rate limit involved.
     req = urllib.request.Request(RELEASES + "/latest", method="HEAD", headers={"User-Agent": "tako-code/" + VERSION})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with opener().open(req, timeout=timeout) as r:
         tag = r.geturl().rstrip("/").rsplit("/", 1)[-1]
     if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
         raise CodeError("Could not read the latest release version")

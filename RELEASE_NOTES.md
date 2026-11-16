@@ -1,13 +1,13 @@
-# Tako 0.1.12: agents that explain themselves, and a new Code swarms page
+# Tako 0.1.13: HTTPS fix for macOS and Linux
 
-- **Real reasons when an agent stops.** Instead of "claude exited with 1", you see what Claude Code, Codex or OpenCode reported, for example `API Error: 429 rate limited` or "hit its 60 turn limit before finishing".
-- **Fewer failed swarms.** An agent that stops on a temporary API error is retried once. An agent that stopped midway keeps its work, marked partial. And one failing agent no longer sinks the swarm: the rest is combined and reviewed, with the failed parts listed.
-- **A new Code swarms page.** One composer at the top (Ctrl+Enter starts a swarm), setup steps only until your PC connects, a compact list that shows why a swarm failed, and a detail view with agents, progress, and Activity, Changes, Review and Tests tabs.
+The macOS and Linux Tako Code executables could not verify HTTPS certificates (`CERTIFICATE_VERIFY_FAILED`), so they could not connect to an `https://` Tako server or update themselves. They now use your system's certificate bundle, with a bundled fallback. Windows was not affected.
 
-Update the server with `tako update`. Tako Code 0.1.11 and later update themselves; otherwise run the installer again:
+This release also includes 0.1.12: agents that explain why they stopped, fewer failed swarms, and the new Code swarms page.
+
+**On macOS or Linux, install once more** (0.1.11 and 0.1.12 cannot update themselves there):
 
 ```sh
 curl -fsSL https://github.com/real-kijmoshi/tako/releases/latest/download/install-code.sh | sh
 ```
 
-Windows (PowerShell): `irm https://github.com/real-kijmoshi/tako/releases/latest/download/install-code.ps1 | iex`
+Windows updates itself; or run `tako-code update`.

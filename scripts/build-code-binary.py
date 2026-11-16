@@ -5,6 +5,7 @@ Requires PyInstaller in the building Python. Writes dist/tako-code-<os>-<arch>[.
 and prints its path. Executables are built natively; PyInstaller cannot cross-compile.
 """
 from pathlib import Path
+import importlib.util
 import platform
 import shutil
 import subprocess
@@ -19,7 +20,9 @@ name = f"tako-code-{system}-{arch}"
 exe = ".exe" if system == "windows" else ""
 
 with tempfile.TemporaryDirectory(prefix="tako-code-build-") as work:
-    subprocess.run([sys.executable, "-m", "PyInstaller", "--onefile", "--clean", "--noconfirm",
+    # certifi is a fallback for HTTPS on systems without a standard certificate bundle.
+    extra = ["--hidden-import", "certifi", "--collect-data", "certifi"] if importlib.util.find_spec("certifi") else []
+    subprocess.run([sys.executable, "-m", "PyInstaller", "--onefile", "--clean", "--noconfirm", *extra,
                     "--name", name, "--distpath", str(Path(work) / "out"),
                     "--workpath", str(Path(work) / "build"), "--specpath", work,
                     str(root / "code" / "tako_code.py")], check=True)

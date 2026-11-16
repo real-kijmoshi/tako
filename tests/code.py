@@ -213,6 +213,17 @@ class Client(unittest.TestCase):
                 self.assertEqual(len(shown.call_args_list), 1, 'says "Updated" once')
         finally:
             server.shutdown(); server.server_close()
+    def test_https_finds_trusted_roots_when_python_cannot(self):
+        # Release executables carry the build machine's certificate paths, which do not exist here.
+        import ssl
+        broken = ssl.DefaultVerifyPaths('/nonexistent/cert.pem', '/nonexistent/certs', '', '', '', '')
+        with patch.object(code, '_TLS', None), patch.object(ssl, 'get_default_verify_paths', return_value=broken), \
+             patch.object(ssl.SSLContext, 'set_default_verify_paths', lambda self: None):
+            ctx = code.tls()
+        if os.name != 'nt' and any(os.path.isfile(f) for f in code.CA_FILES):
+            self.assertGreater(ctx.cert_store_stats()['x509_ca'], 0)
+        self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(ctx.check_hostname)
     def test_agent_cli_errors_are_explained(self):
         r = code.failure_reason
         self.assertIn('API Error: 524', r(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': True, 'result': 'API Error: 524 timeout'})))
