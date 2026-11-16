@@ -133,7 +133,7 @@ class Api:
 
 def git(repo, *args, check=True):
     # Hooks must not run as a side effect of machine-generated commits or merges.
-    cmd = ["git", "-c", "core.hooksPath=" + str(HOME / "empty-hooks"), "-c", "commit.gpgSign=false",
+    cmd = ["git", "-c", "core.hooksPath=" + str(HOME / "empty-hooks"), "-c", "core.fsmonitor=false", "-c", "commit.gpgSign=false",
            "-c", "user.name=Tako Code", "-c", "user.email=tako-code@localhost", "-C", str(repo), *args]
     p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
     if check and p.returncode:
@@ -151,7 +151,11 @@ def safe_path(root: Path, relative: str, writing=False):
     if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
         raise CodeError("Use a relative path inside the worker worktree")
     parts = Path(relative).parts
-    if ".." in parts or any(p in DENIED or p.startswith(".env.") or p.endswith((".pem", ".key")) for p in parts):
+    # macOS and Windows file systems ignore case (and Windows trailing dots/spaces), so
+    # ".GIT" or ".env. " must be treated like ".git" and ".env"; 8.3 names hide them too.
+    names = [p.casefold().rstrip(". ") for p in parts]
+    if ".." in parts or any(n in DENIED or n.startswith(".env.") or n.endswith((".pem", ".key"))
+                            or re.search(r"~\d", n) or ":" in n for n in names):
         raise CodeError("This path is outside the permitted coding files")
     path = root.joinpath(relative)
     # Do not follow a symlink at any level, including one pointing into the repo.
@@ -395,6 +399,8 @@ def external(engine, api, root, prompt, cancel, log):
 class Swarm:
     def __init__(self, api, job, project, cancel):
         self.api, self.job, self.project, self.cancel = api, job, project, cancel
+        if not re.fullmatch(r"[a-f0-9]{16}", str(job.get("id", ""))):
+            raise CodeError("Invalid job id")
         self.repo = repo_root(project["path"])
         if HOME.resolve().is_relative_to(self.repo):
             raise CodeError("Keep TAKO_CODE_HOME outside the registered repository")
@@ -614,7 +620,10 @@ def run(c, once=False):
                             return
                 if response.get("job"):
                     job = response["job"]
-                    project = c.get("projects", {}).get(job["project"])
+                    # Job ids become local folder and branch names; never trust the VPS with paths.
+                    if not re.fullmatch(r"[a-f0-9]{16}", str(job.get("id", ""))):
+                        raise CodeError("VPS sent an invalid job id; ignoring it")
+                    project = c.get("projects", {}).get(job.get("project"))
                     if not project:
                         api.runner("event", job=job["id"], event={"phase": "failed", "message": "Project is not registered on this PC"})
                     elif active:

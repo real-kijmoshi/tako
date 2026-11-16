@@ -96,7 +96,8 @@ class Client(unittest.TestCase):
         with self.assertRaisesRegex(code.CodeError, 'branch moved'): code.apply(self.job['id'])
     def test_file_tools_enforce_boundaries_and_read_before_write(self):
         worker = code.Builtin(self.api, self.repo, threading.Event(), lambda _: None)
-        for path in ['../outside', str(self.folder / 'absolute'), '.env', '.env.staging', '.git/config', 'cert.pem']:
+        for path in ['../outside', str(self.folder / 'absolute'), '.env', '.env.staging', '.git/config', 'cert.pem',
+                     '.GIT/config', '.Git', '.ENV', '.git./config', '.git /config', 'GIT~1/config', 'Cert.PEM', 'a.txt:stream']:
             with self.assertRaises(code.CodeError): worker.execute('write_file', {'path': path, 'content': 'x'})
         (self.repo / 'link').symlink_to(self.folder)
         with self.assertRaises(code.CodeError): worker.execute('read_file', {'path': 'link/outside'})
@@ -104,6 +105,11 @@ class Client(unittest.TestCase):
         worker.execute('read_file', {'path': 'a.txt'})
         worker.execute('write_file', {'path': 'a.txt', 'content': 'allowed'})
         self.assertEqual((self.repo / 'a.txt').read_text(), 'allowed')
+    def test_job_ids_from_vps_cannot_name_paths(self):
+        for bad in ['../../etc', '0123456789ABCDEF', '0123456789abcde/', '']:
+            with self.assertRaises(code.CodeError):
+                code.Swarm(self.api, {**self.job, 'id': bad}, self.project, threading.Event())
+        self.assertFalse((self.folder / 'etc').exists())
     def test_url_credentials_and_cancel(self):
         for url in ['http://example.com', 'https://user:pass@example.com', 'https://example.com?key=secret']:
             with self.assertRaises(code.CodeError): code.validate_url(url)
