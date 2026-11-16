@@ -1,14 +1,10 @@
-# Tako 0.1.11: no more 524s, a nicer terminal, self-update
+# Tako 0.1.12: agents that explain themselves, and a new Code swarms page
 
-- **Agents no longer die with HTTP 524 behind Cloudflare.** Slow free models used to leave the connection silent for over 100 seconds, and Cloudflare cut it off. The Tako Code gateway now answers streaming requests immediately and keeps them alive while the model thinks. The built-in agent streams too, and temporary failures (rate limits, overloaded models, timeouts) are retried three times before an agent gives up.
-- **A cleaner terminal screen.** A welcome box shows your project, agents and server; a status line sits above the prompt; the live view and summary are easier to read and say how many agents failed. The live view no longer repeats its header lines.
-- **Tako Code updates itself.** It checks for new releases in the background, verifies the download against `SHA256SUMS`, and installs it when you quit. `tako-code update` updates right away; `TAKO_CODE_NO_UPDATE=1` turns it off.
-- **Web panel:** Claude Code is preselected when your PC has it.
+- **Real reasons when an agent stops.** Instead of "claude exited with 1", you see what Claude Code, Codex or OpenCode reported, for example `API Error: 429 rate limited` or "hit its 60 turn limit before finishing".
+- **Fewer failed swarms.** An agent that stops on a temporary API error is retried once. An agent that stopped midway keeps its work, marked partial. And one failing agent no longer sinks the swarm: the rest is combined and reviewed, with the failed parts listed.
+- **A new Code swarms page.** One composer at the top (Ctrl+Enter starts a swarm), setup steps only until your PC connects, a compact list that shows why a swarm failed, and a detail view with agents, progress, and Activity, Changes, Review and Tests tabs.
 
-**Update both sides this time:**
-
-- On the server: `tako update` (this is where the 524 fix lives).
-- On your PC, run the installer once more (later versions update themselves):
+Update the server with `tako update`. Tako Code 0.1.11 and later update themselves; otherwise run the installer again:
 
 ```sh
 curl -fsSL https://github.com/real-kijmoshi/tako/releases/latest/download/install-code.sh | sh

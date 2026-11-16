@@ -27,7 +27,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.1.11"
+VERSION = "0.1.12"
 TERMINAL = {"ready", "needs_attention", "failed", "cancelled", "applied"}
 HOME = Path(os.environ.get("TAKO_CODE_HOME", Path.home() / ".config" / "tako-code"))
 DENIED = {".git", ".env", ".env.local", ".env.production", ".ssh", ".aws", ".npmrc", ".pypirc"}
@@ -406,6 +406,30 @@ class Builtin:
         raise CodeError("Worker reached its 30-turn limit; inspect its preserved worktree")
 
 
+TRANSIENT = re.compile(r"API Error: (5\d\d|429)|overloaded|rate.?limit|timed? ?out|timeout|ECONN|socket hang up|"
+                       r"\b52[0-7]\b|temporarily|try again|connection (reset|error|closed)|free_models_unavailable", re.I)
+
+def failure_reason(line):
+    """The error an agent CLI reports in one output line (Claude Code, Codex or OpenCode JSON), or None."""
+    try:
+        v = json.loads(line)
+    except ValueError:
+        text = line.strip()
+        return text if re.search(r"error|failed|denied|not found|invalid|unauthori", text, re.I) else None
+    if not isinstance(v, dict):
+        return None
+    if v.get("type") == "result" and (v.get("is_error") or str(v.get("subtype", "")).startswith("error")):
+        if v.get("subtype") == "error_max_turns":
+            return f"hit its {v.get('num_turns') or ''} turn limit before finishing".replace("  ", " ")
+        return str(v.get("result") or v.get("subtype") or "reported an error")
+    if v.get("type") in ("error", "turn.failed", "session.error"):
+        err = v.get("error") if isinstance(v.get("error"), (dict, str)) else v
+        if isinstance(err, dict):
+            data = err.get("data") if isinstance(err.get("data"), dict) else {}
+            err = err.get("message") or data.get("message") or json.dumps(err)[:300]
+        return str(err or v.get("message") or "reported an error")
+    return None
+
 def external(engine, api, root, prompt, cancel, log):
     executable = shutil.which(engine)
     if not executable or (os.name == "nt" and executable.lower().endswith((".cmd", ".bat"))):
@@ -434,7 +458,7 @@ def external(engine, api, root, prompt, cancel, log):
             deny = [f"{tool}({pattern})" for tool in ["Read", "Edit", "Write", "Glob", "Grep"]
                     for pattern in ["./.env*", "./**/.env*", "./.git/**", "./**/.git/**", "./**/*.pem", "./**/*.key"]]
             settings = json.dumps({"permissions": {"deny": deny}})
-            command = [executable, "--bare", "--restricted", "--settings", settings, "--max-turns", "30", "-p", "--output-format", "stream-json", "--verbose", "--model", "free:coding",
+            command = [executable, "--bare", "--restricted", "--settings", settings, "--max-turns", "60", "-p", "--output-format", "stream-json", "--verbose", "--model", "free:coding",
                        "--permission-mode", "acceptEdits", "--tools", "Read,Write,Edit,Glob,Grep", "--allowedTools", "Read,Write,Edit,Glob,Grep", "--", prompt]
         elif engine == "codex":
             # A private CODEX_HOME keeps the user's ChatGPT login and config out of the worker;
@@ -456,7 +480,7 @@ def external(engine, api, root, prompt, cancel, log):
         with output.open("w", encoding="utf-8") as f:
             p = subprocess.Popen(command, cwd=root, env=env, stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT,
                                  start_new_session=os.name != "nt")
-        offset, pending = 0, ""
+        offset, pending, reason = 0, "", ""
         deadline = time.monotonic() + 1200
         while True:
             with output.open(encoding="utf-8", errors="replace") as f:
@@ -466,13 +490,20 @@ def external(engine, api, root, prompt, cancel, log):
             pending += chunk
             lines = pending.split("\n")
             pending = lines.pop()
+            for line in lines:
+                reason = failure_reason(line) or reason
             for line in lines[-50:]:
                 if line.strip():
                     # Only emit bounded, redacted output. Do not send engine environment/configs.
                     log(api.redact(line[:1800]))
             if p.poll() is not None:
+                if pending.strip():
+                    reason = failure_reason(pending) or reason
                 if p.returncode:
-                    raise CodeError(f"{engine} exited with {p.returncode}; inspect the worker events")
+                    name = ENGINE_NAMES.get(engine, engine)
+                    text = api.redact(clean(reason))[:600] if reason else f"exited with code {p.returncode} without an error message"
+                    error = Transient if TRANSIENT.search(text) else CodeError
+                    raise error(f"{name} stopped: {text}")
                 return f"{engine} finished"
             if cancel.wait(0.5) or time.monotonic() > deadline:
                 terminate(p)
@@ -558,10 +589,26 @@ class Swarm:
             prompt = ("Overall request: " + self.job["task"] + "\nYour assigned task: " + task["instructions"] +
                       "\nOther workers have different assignments. Do not commit, merge, deploy or run network commands. "
                       "Edit files only in this worktree; the coordinator will commit and test.")
-            if self.job["engine"] == "builtin":
-                Builtin(self.api, root, self.cancel, log).run(prompt)
-            else:
-                external(self.job["engine"], self.api, root, prompt, self.cancel, log)
+            stopped = None
+            for attempt in (1, 2):
+                try:
+                    if self.job["engine"] == "builtin":
+                        Builtin(self.api, root, self.cancel, log).run(prompt)
+                    else:
+                        external(self.job["engine"], self.api, root, prompt, self.cancel, log)
+                    break
+                except Cancelled:
+                    raise
+                except CodeError as e:
+                    changed = bool(git(root, "status", "--porcelain").stdout.strip())
+                    if isinstance(e, Transient) and attempt == 1 and not changed and not self.cancel.wait(20):
+                        log(f"{e}; trying once more")
+                        continue
+                    if not changed:
+                        raise
+                    # It stopped midway but wrote code: keep that work, clearly marked.
+                    stopped = str(e)
+                    break
             if self.cancel.is_set():
                 raise Cancelled("Cancelled")
             if not git(root, "status", "--porcelain").stdout.strip():
@@ -571,7 +618,9 @@ class Swarm:
                 git(root, "add", "-A")
                 git(root, "commit", "-m", "Tako Code: " + task["title"][:100])
                 worker["commit"] = git(root, "rev-parse", "HEAD").stdout.strip()
-                worker["phase"] = "done"
+                worker["phase"] = "partial" if stopped else "done"
+                if stopped:
+                    worker["error"] = self.api.redact(stopped)[:2000] + " (its changes so far are kept)"
             return worker
         except Exception as e:
             worker["phase"] = "cancelled" if isinstance(e, Cancelled) else "failed"
@@ -600,11 +649,13 @@ class Swarm:
                         failures.append(str(e))
                 if self.cancel.is_set():
                     raise Cancelled("Cancelled; worktrees preserved")
-                if failures:
-                    raise CodeError("Worker failed; all worktrees preserved: " + failures[0])
+                if failures and not results:
+                    raise CodeError(("All agents failed" if len(failures) > 1 else "The agent failed") + ": " + failures[0])
             commits = [w["commit"] for w in sorted(results, key=lambda w: w["id"]) if w.get("commit")]
             if not commits:
-                raise CodeError("Workers produced no code changes")
+                raise CodeError("Agents produced no code changes" + (": " + failures[0] if failures else ""))
+            if failures:
+                self.event(f"{len(failures)} of {len(failures) + len(results)} agents failed; combining the rest. First error: {failures[0]}")
             branch = f"tako-code/{self.job['id']}/review"
             merged = self.folder / "review"
             git(self.repo, "worktree", "add", "-b", branch, str(merged), base)
@@ -948,13 +999,13 @@ def board(state, acts, notes, since, frame=0, width=80, running=True):
         lines.append(f"    {paint('36', spin)} Planning: splitting the task between agents…")
     for w in workers:
         p = w.get("phase")
-        mark, tint = {"done": ("✓", "32"), "no_changes": ("–", "2"), "failed": ("✗", "31"),
+        mark, tint = {"done": ("✓", "32"), "no_changes": ("–", "2"), "failed": ("✗", "31"), "partial": ("◐", "33"),
                       "cancelled": ("⊘", "33")}.get(p, (SPINNER[(frame + w.get("id", 0)) % len(SPINNER)], "36"))
         detail = w.get("error") or {"done": "done", "no_changes": "no changes"}.get(p) or acts.get(w.get("id")) or "starting…"
         # Measure plain text first so colors never push a line past the terminal width.
         title = clip(w.get("title", ""), 28)
         rest = clip(f" {w.get('id')}  {title}{' ' * (28 - text_width(title))}  ", max(0, width - 6))
-        tone = "31" if p == "failed" else "2"
+        tone = "31" if p == "failed" else "33" if p == "partial" else "2"
         lines.append("    " + paint(tint, mark) + rest + paint(tone, clip(detail, max(0, width - 6 - text_width(rest)))))
     if notes:
         lines += ["", paint("2", clip("    " + notes[-1], width))]
@@ -1064,10 +1115,16 @@ def summary(swarm):
     else:
         print(paint("31", "●") + " " + paint("1", "Failed"))
         print(paint("2", "  └ ") + clean(s.get("error") or "see the agents above"))
-    failed = [w for w in s.get("workers") or [] if w.get("phase") == "failed"]
-    if failed and phase in ("ready", "needs_attention"):
-        print(paint("33", f"  {len(failed)} of {len(s.get('workers'))} agents failed; their part may be missing. "
-                          "Type the task again to retry it."))
+    workers = s.get("workers") or []
+    failed = [w for w in workers if w.get("phase") == "failed"]
+    partial = [w for w in workers if w.get("phase") == "partial"]
+    if (failed or partial) and phase in ("ready", "needs_attention"):
+        print()
+        for w in failed + partial:
+            mark = paint("31", "✗") if w in failed else paint("33", "◐")
+            print(f"  {mark} {clip(w.get('title', ''), 40)}" + paint("2", " · " + clip(w.get("error", ""), max(20, cols - 50))))
+        print(paint("33", "  Some parts may be missing or unfinished. /apply takes what is there; "
+                          "type a follow-up task to finish the rest."))
 
 def pair(url, key, name):
     """Connect this PC to a VPS and save the configuration."""

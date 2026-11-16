@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.12 — 2026-11-16
+
+- Explain why an agent stopped: Claude Code, Codex and OpenCode errors (for example `API Error: 429 …` or the turn limit) replace "claude exited with 1; inspect the worker events".
+- Retry an agent once when it stops on a temporary API error (rate limit, overload, timeout, 5xx) before it changed anything.
+- Keep the work of an agent that stopped midway, marked "partial", and raise Claude Code's turn limit from 30 to 60.
+- Stop one failing agent from failing the whole swarm: the other agents' work is combined and reviewed, and the failed parts are listed with their reasons.
+- Redesign the web Code swarms page: a single composer (Ctrl+Enter starts), setup steps only until a PC connects, a compact swarm list showing why something failed, and a detail view with a progress bar, agents, and Activity, Changes, Review and Tests tabs.
+
 ## 0.1.11 — 2026-11-16
 
 - Stop agents failing with HTTP 524 behind Cloudflare and other proxies. Streaming requests to the Tako Code gateway are answered immediately and kept alive while a slow free model thinks; plain JSON answers and errors are delivered as stream events (OpenAI and Anthropic formats), so Claude Code and OpenCode retry them as usual.

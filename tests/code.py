@@ -213,6 +213,54 @@ class Client(unittest.TestCase):
                 self.assertEqual(len(shown.call_args_list), 1, 'says "Updated" once')
         finally:
             server.shutdown(); server.server_close()
+    def test_agent_cli_errors_are_explained(self):
+        r = code.failure_reason
+        self.assertIn('API Error: 524', r(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': True, 'result': 'API Error: 524 timeout'})))
+        self.assertEqual(r(json.dumps({'type': 'result', 'subtype': 'error_max_turns', 'num_turns': 60, 'is_error': True})), 'hit its 60 turn limit before finishing')
+        self.assertEqual(r(json.dumps({'type': 'turn.failed', 'error': {'message': 'stream disconnected'}})), 'stream disconnected')
+        self.assertEqual(r(json.dumps({'type': 'error', 'error': {'name': 'APIError', 'data': {'message': 'rate limited'}}})), 'rate limited')
+        self.assertEqual(r('Error: Claude Code on Windows requires git-bash'), 'Error: Claude Code on Windows requires git-bash')
+        self.assertIsNone(r(json.dumps({'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': 'fixing the error'}]}})))
+        self.assertIsNone(r(json.dumps({'type': 'result', 'subtype': 'success', 'is_error': False, 'result': 'done'})))
+        # A real (fake) CLI that fails: the worker error carries its words, not just an exit code.
+        bin_dir = self.folder / 'bin'; bin_dir.mkdir()
+        fake = bin_dir / 'claude'
+        fake.write_text('#!/bin/sh\necho \'{"type":"result","subtype":"success","is_error":true,"result":"API Error: 429 rate limited"}\'\nexit 1\n'); fake.chmod(0o755)
+        if os.name != 'nt':
+            with patch.dict(os.environ, {'PATH': str(bin_dir) + os.pathsep + os.environ['PATH']}), self.assertRaises(code.Transient) as failed:
+                code.external('claude', code.Api({'url': 'https://example.com', 'key': 'k'}), self.repo, 'task', threading.Event(), lambda m: None)
+            self.assertEqual(str(failed.exception), 'Claude Code stopped: API Error: 429 rate limited')
+    def test_one_failing_agent_does_not_sink_the_swarm(self):
+        self.job = {**self.job, 'engine': 'claude', 'workers_requested': 4}
+        self.project = {**self.project, 'test_commands': []}
+        tasks = [{'title': f'Part {n}', 'instructions': f'part {n}'} for n in range(1, 5)]
+        calls = {}
+        def fake_external(engine, api, root, prompt, cancel, log):
+            part = prompt.split('Your assigned task: part ')[1][0]
+            calls[part] = calls.get(part, 0) + 1
+            if part == '1':
+                (root / 'one.txt').write_text('1\n')
+            elif part == '2' and calls[part] == 1:
+                raise code.Transient('Claude Code stopped: API Error: 529 overloaded')
+            elif part == '2':
+                (root / 'two.txt').write_text('2\n')
+            elif part == '3':
+                (root / 'three.txt').write_text('half\n')
+                raise code.CodeError('Claude Code stopped: hit its 60 turn limit before finishing')
+            else:
+                raise code.CodeError('Claude Code stopped: invalid request')
+        with patch.object(code.Swarm, 'plan', lambda self: tasks), patch.object(code, 'external', fake_external), \
+             patch.object(threading.Event, 'wait', lambda self, timeout=None: self.is_set()):
+            swarm = self.swarm()
+        self.assertEqual(swarm.state['phase'], 'ready', swarm.state.get('error'))
+        phases = {w['id']: w['phase'] for w in swarm.state['workers']}
+        self.assertEqual(phases, {1: 'done', 2: 'done', 3: 'partial', 4: 'failed'})
+        self.assertEqual(calls['2'], 2, 'a temporary API error is retried once')
+        self.assertEqual(calls['4'], 1, 'a real error is not retried')
+        self.assertIn('invalid request', [w for w in swarm.state['workers'] if w['id'] == 4][0]['error'])
+        diff = (swarm.folder / 'changes.patch').read_text()
+        for name in ['one.txt', 'two.txt', 'three.txt']:
+            self.assertIn(name, diff)
     def test_job_ids_from_vps_cannot_name_paths(self):
         for bad in ['../../etc', '0123456789ABCDEF', '0123456789abcde/', '']:
             with self.assertRaises(code.CodeError):
