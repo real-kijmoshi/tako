@@ -20,6 +20,7 @@ import sys
 import tempfile
 import threading
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -153,7 +154,9 @@ def safe_path(root: Path, relative: str, writing=False):
     parts = Path(relative).parts
     # macOS and Windows file systems ignore case (and Windows trailing dots/spaces), so
     # ".GIT" or ".env. " must be treated like ".git" and ".env"; 8.3 names hide them too.
-    names = [p.casefold().rstrip(". ") for p in parts]
+    # HFS+/APFS also ignore invisible format characters (".g‌it"), as in CVE-2014-9390.
+    names = ["".join(ch for ch in unicodedata.normalize("NFKC", p) if unicodedata.category(ch) != "Cf")
+             .casefold().rstrip(". ") for p in parts]
     if ".." in parts or any(n in DENIED or n.startswith(".env.") or n.endswith((".pem", ".key"))
                             or re.search(r"~\d", n) or ":" in n for n in names):
         raise CodeError("This path is outside the permitted coding files")
@@ -166,6 +169,12 @@ def safe_path(root: Path, relative: str, writing=False):
             raise CodeError("Symlink access is disabled for coding tools")
     if not path.resolve().is_relative_to(root.resolve()):
         raise CodeError("Path escapes the worker worktree")
+    # Identity check as well as names: whatever spelling reaches .git on disk is refused.
+    cursor = root
+    for part in parts:
+        cursor = cursor / part
+        if cursor.exists() and (root / ".git").exists() and os.path.samefile(cursor, root / ".git"):
+            raise CodeError("This path is outside the permitted coding files")
     if writing and path.exists() and not path.is_file():
         raise CodeError("Only regular files can be edited")
     return path

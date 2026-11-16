@@ -97,7 +97,7 @@ class Client(unittest.TestCase):
     def test_file_tools_enforce_boundaries_and_read_before_write(self):
         worker = code.Builtin(self.api, self.repo, threading.Event(), lambda _: None)
         for path in ['../outside', str(self.folder / 'absolute'), '.env', '.env.staging', '.git/config', 'cert.pem',
-                     '.GIT/config', '.Git', '.ENV', '.git./config', '.git /config', 'GIT~1/config', 'Cert.PEM', 'a.txt:stream']:
+                     '.GIT/config', '.Git', '.ENV', '.git./config', '.git /config', 'GIT~1/config', 'Cert.PEM', 'a.txt:stream', '.g‌it/config', '.﻿env', '.ｇｉｔ/config']:
             with self.assertRaises(code.CodeError): worker.execute('write_file', {'path': path, 'content': 'x'})
         (self.repo / 'link').symlink_to(self.folder)
         with self.assertRaises(code.CodeError): worker.execute('read_file', {'path': 'link/outside'})
