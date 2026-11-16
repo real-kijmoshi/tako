@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.1.4 — 2026-11-16
+## 0.1.5 — 2026-11-16
+
+- Isolate smart-route unit-test fixtures to remove a parallel file-write race caught during release verification. Version 0.1.4 was tagged but not published.
 
 - Expand the catalog to 22 providers with Nous Portal, ModelScope, SiliconFlow China, BlockRun, Novita's Apodex promotion, and Vikasit Nova.
 - Refresh free-model recommendations, highlight them in the web picker, and default to the free filter where known free models exist.

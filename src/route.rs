@@ -471,12 +471,7 @@ mod tests {
     use serde_json::json;
 
     fn cfg(toml: &str) -> Config {
-        let dir =
-            std::env::temp_dir().join(format!("tako-route-{}-{}", std::process::id(), toml.len()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let p = dir.join("config.toml");
-        std::fs::write(&p, toml).unwrap();
-        crate::config::load(&p).unwrap()
+        crate::config::parse(toml).unwrap()
     }
 
     const CFG: &str = r#"

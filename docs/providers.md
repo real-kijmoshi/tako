@@ -78,7 +78,7 @@ These are not recurring free API options.
 Public catalogs were fetched without credentials. Documentation checks and model
 discovery do not verify an individual account's quota or authenticated inference.
 
-## Release 0.1.4 verification
+## Release 0.1.5 verification
 
 The [dated audit](free-model-audit.json) records a fresh pre-release check of
 recommended model listings, token prices where supplied, and tiny inference

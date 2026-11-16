@@ -1,4 +1,4 @@
-# Tako 0.1.4
+# Tako 0.1.5
 
 Tako now includes 22 providers, adding Nous Portal, ModelScope, SiliconFlow China,
 BlockRun's anonymous free endpoint, Novita's free Apodex promotion, and Vikasit Nova.
@@ -12,6 +12,9 @@ ranked candidates. Routes work as defaults and aliases and appear in the model
 list, playground, and Combos screen. The live routing map now makes traffic and
 in-flight requests easier to follow. The setup checklist can be dismissed.
 
+The smart-route tests now parse independent in-memory configs, removing a
+parallel fixture race found by release verification.
+
 ## Free-model checks
 
 Before release, live catalogs and current pricing documentation were rechecked.
@@ -21,8 +24,8 @@ recommendations. Other authenticated providers were checked against public
 catalogs/documentation; their inference was not tested without credentials.
 Free tiers remain account- and quota-dependent, and promotions can end.
 
-See [provider selections and evidence](https://github.com/real-kijmoshi/tako/blob/v0.1.4/docs/providers.md)
-and the [dated model audit](https://github.com/real-kijmoshi/tako/blob/v0.1.4/docs/free-model-audit.json).
+See [provider selections and evidence](https://github.com/real-kijmoshi/tako/blob/v0.1.5/docs/providers.md)
+and the [dated model audit](https://github.com/real-kijmoshi/tako/blob/v0.1.5/docs/free-model-audit.json).
 
 Update with `tako update`. Updating restarts a running router and can interrupt
 active requests; configuration and keys persist.
