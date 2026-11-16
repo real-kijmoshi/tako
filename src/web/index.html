@@ -2378,11 +2378,15 @@ button:disabled { cursor: not-allowed; }
   function codeProjects() {
     const runner = codeState.runners.find(r => r.id === $('code-runner').value), select = $('code-project'), old = select.value;
     const projects = runner?.projects || [];
-    select.innerHTML = projects.length ? projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('') : '<option value="">Register a project on this PC</option>';
+    select.innerHTML = projects.length ? projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('') : '<option value="">No project yet: run tako-code in a folder on this PC</option>';
     select.value = projects.some(p => p.id === old) ? old : (projects[0]?.id || '');
-    const engine = $('code-engine'), previous = engine.value, names = {builtin:'Built-in coding agents',opencode:'OpenCode',claude:'Claude Code',codex:'Codex CLI'};
-    engine.innerHTML = (runner?.engines || ['builtin']).map(e => `<option value="${esc(e)}">${esc(names[e] || e)}</option>`).join('');
-    if ((runner?.engines || []).includes(previous)) engine.value = previous;
+    // Prefer the strongest agent the PC has (Claude Code first) unless the user picked one.
+    const engine = $('code-engine'), names = {builtin:'Built-in coding agents',opencode:'OpenCode',claude:'Claude Code',codex:'Codex CLI'};
+    const engines = ['claude','codex','opencode','builtin'].filter(e => (runner?.engines || ['builtin']).includes(e));
+    const previous = engine.dataset.chosen || engine.value;
+    engine.innerHTML = engines.map(e => `<option value="${esc(e)}">${esc(names[e] || e)}</option>`).join('');
+    engine.value = engine.dataset.chosen && engines.includes(previous) ? previous : engines[0];
+    engine.onchange = () => { engine.dataset.chosen = engine.value; };
     $('code-start').disabled = !runner?.online || !projects.length;
   }
   function renderCodeJobs() {

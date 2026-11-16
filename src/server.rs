@@ -911,7 +911,168 @@ async fn proxy(
             )
         }
     };
+    if free_only && body["stream"] == true {
+        return keep_alive(wire, proxy_json(app, cfg, wire, true, beta, body));
+    }
     proxy_json(app, cfg, wire, free_only, beta, body).await
+}
+
+/// Free models can think for minutes before their first token, and fallbacks add up;
+/// proxies in front of Tako give up much sooner (Cloudflare: 100 s without a reply, HTTP
+/// 524). So a streaming Tako Code request is answered at once and kept open with SSE
+/// comments until the routed response is ready. Then its stream is passed through; a
+/// plain JSON answer becomes stream events, and an error becomes an SSE error event,
+/// which agents (Claude Code, OpenCode, tako-code) retry like an HTTP error.
+fn keep_alive<F>(wire: Wire, answer: F) -> Response<Body>
+where
+    F: std::future::Future<Output = Response<Body>> + Send + 'static,
+{
+    let (tx, rx) = mpsc::channel::<Bytes>(8);
+    tokio::spawn(async move {
+        let ping = || Bytes::from_static(b": keepalive\n\n");
+        if tx.send(ping()).await.is_err() {
+            return;
+        }
+        let mut answer = Box::pin(answer);
+        let resp = loop {
+            tokio::select! {
+                r = &mut answer => break r,
+                _ = tokio::time::sleep(Duration::from_secs(15)) => {
+                    if tx.send(ping()).await.is_err() { return; }
+                }
+            }
+        };
+        let status = resp.status().as_u16();
+        let is_sse = resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|c| c.starts_with("text/event-stream"));
+        let mut body = resp.into_body();
+        if status == 200 && is_sse {
+            while let Some(Ok(frame)) = body.frame().await {
+                if let Ok(data) = frame.into_data() {
+                    if tx.send(data).await.is_err() {
+                        return;
+                    }
+                }
+            }
+            return;
+        }
+        let bytes = body
+            .collect()
+            .await
+            .map(|c| c.to_bytes())
+            .unwrap_or_default();
+        let v: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+        let out = if status == 200 && v.is_object() {
+            full_as_sse(wire, &v)
+        } else {
+            let message = v["error"]["message"]
+                .as_str()
+                .unwrap_or("Free model request failed");
+            sse_error(wire, status, message)
+        };
+        let _ = tx.send(Bytes::from(out)).await;
+    });
+    let s = futures_util::stream::unfold(rx, |mut rx| async move {
+        rx.recv()
+            .await
+            .map(|b| (Ok::<_, io::Error>(Frame::data(b)), rx))
+    });
+    sse(StreamBody::new(s).boxed_unsync())
+}
+
+fn sse_error(wire: Wire, status: u16, message: &str) -> String {
+    let kind = match status {
+        429 => "rate_limit_error",
+        500.. => "overloaded_error",
+        _ => "invalid_request_error",
+    };
+    match wire {
+        Wire::Anthropic => format!(
+            "event: error\ndata: {}\n\n",
+            json!({"type": "error", "error": {"type": kind, "message": message}})
+        ),
+        Wire::Openai => format!(
+            "data: {}\n\n",
+            json!({"error": {"message": message, "type": kind, "code": status}})
+        ),
+    }
+}
+
+/// A complete (non-streamed) answer, as the stream events a client asked for.
+fn full_as_sse(wire: Wire, v: &Value) -> String {
+    let mut out = String::new();
+    let mut event = |name: &str, data: Value| {
+        if wire == Wire::Anthropic {
+            out.push_str(&format!("event: {name}\n"));
+        }
+        out.push_str(&format!("data: {data}\n\n"));
+    };
+    match wire {
+        Wire::Openai => {
+            let mut chunk = v.clone();
+            chunk["object"] = json!("chat.completion.chunk");
+            if let Some(choices) = chunk["choices"].as_array_mut() {
+                for c in choices {
+                    let mut delta = c["message"].take();
+                    if let Some(calls) = delta["tool_calls"].as_array_mut() {
+                        for (i, call) in calls.iter_mut().enumerate() {
+                            call["index"] = json!(i);
+                        }
+                    }
+                    c["delta"] = delta;
+                    c.as_object_mut().map(|o| o.remove("message"));
+                }
+            }
+            event("", chunk);
+            out.push_str("data: [DONE]\n\n");
+        }
+        Wire::Anthropic => {
+            let mut start = v.clone();
+            start["content"] = json!([]);
+            start["stop_reason"] = Value::Null;
+            event(
+                "message_start",
+                json!({"type": "message_start", "message": start}),
+            );
+            let blocks = v["content"].as_array().cloned().unwrap_or_default();
+            for (i, b) in blocks.iter().enumerate() {
+                let (open, delta) = match b["type"].as_str() {
+                    Some("tool_use") => (
+                        json!({"type": "tool_use", "id": b["id"], "name": b["name"], "input": {}}),
+                        json!({"type": "input_json_delta", "partial_json": b["input"].to_string()}),
+                    ),
+                    Some("text") => (
+                        json!({"type": "text", "text": ""}),
+                        json!({"type": "text_delta", "text": b["text"]}),
+                    ),
+                    _ => continue,
+                };
+                event(
+                    "content_block_start",
+                    json!({"type": "content_block_start", "index": i, "content_block": open}),
+                );
+                event(
+                    "content_block_delta",
+                    json!({"type": "content_block_delta", "index": i, "delta": delta}),
+                );
+                event(
+                    "content_block_stop",
+                    json!({"type": "content_block_stop", "index": i}),
+                );
+            }
+            event(
+                "message_delta",
+                json!({"type": "message_delta",
+                       "delta": {"stop_reason": v["stop_reason"], "stop_sequence": v["stop_sequence"]},
+                       "usage": {"output_tokens": v["usage"]["output_tokens"]}}),
+            );
+            event("message_stop", json!({"type": "message_stop"}));
+        }
+    }
+    out
 }
 
 /// Route an already parsed request. `free_only` restricts it to free catalog routes

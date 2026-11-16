@@ -6,8 +6,10 @@ import concurrent.futures
 import contextlib
 import getpass
 import hashlib
+import http.client
 import json
 import os
+import platform
 from pathlib import Path
 import re
 import secrets
@@ -25,7 +27,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.1.10"
+VERSION = "0.1.11"
 TERMINAL = {"ready", "needs_attention", "failed", "cancelled", "applied"}
 HOME = Path(os.environ.get("TAKO_CODE_HOME", Path.home() / ".config" / "tako-code"))
 DENIED = {".git", ".env", ".env.local", ".env.production", ".ssh", ".aws", ".npmrc", ".pypirc"}
@@ -33,6 +35,9 @@ MAX_FILE = 100_000
 
 class CodeError(Exception):
     pass
+
+class Transient(CodeError):
+    """A failure worth retrying: rate limits, overloaded or timed-out free models, a dropped connection."""
 
 class Cancelled(CodeError):
     pass
@@ -107,25 +112,93 @@ class Api:
             with urllib.request.build_opener(SameOriginRedirect()).open(req, timeout=timeout) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
-            try:
-                message = json.load(e).get("error", {})
-                message = message.get("message", str(message)) if isinstance(message, dict) else str(message)
-            except (ValueError, OSError):
-                message = "Request rejected"
-            raise CodeError(self.redact(f"VPS HTTP {e.code}: {message}")) from None
+            raise self.http_error(e) from None
         except (urllib.error.URLError, TimeoutError, ValueError) as e:
             raise CodeError(self.redact(f"Cannot reach Tako VPS: {e}")) from None
 
+    def http_error(self, e):
+        try:
+            message = json.load(e).get("error", {})
+            message = message.get("message", str(message)) if isinstance(message, dict) else str(message)
+        except (ValueError, OSError, AttributeError):
+            message = "Request rejected"
+        if 520 <= e.code <= 527:  # Cloudflare's own errors: the page is HTML, not Tako's JSON
+            message = "the proxy in front of your Tako server got no answer in time"
+        error = Transient if e.code in (408, 409, 425, 429) or e.code >= 500 else CodeError
+        return error(self.redact(f"VPS HTTP {e.code}: {message}"))
+
+    RETRY_DELAYS = (5, 20, 60)
+
     def complete(self, messages, tools=None, reasoning=False):
+        """One assistant message from the free-model gateway, retrying failures that tend to pass."""
         body = {"model": "free:reasoning" if reasoning else "free:coding", "messages": messages,
-                "max_tokens": 4096, "stream": False}
+                "max_tokens": 4096, "stream": True}
         if tools:
             body["tools"] = tools
-        v = self.request("/code/v1/chat/completions", body, timeout=180)
+        for delay in (*self.RETRY_DELAYS, None):
+            try:
+                return self.stream_chat(body)
+            except Transient:
+                if delay is None:
+                    raise
+                time.sleep(delay)
+
+    def stream_chat(self, body):
+        # Streaming keeps proxies such as Cloudflare from cutting a slow answer off (HTTP 524):
+        # the server sends keepalives while the free model thinks.
+        req = urllib.request.Request(self.url + "/code/v1/chat/completions", data=json.dumps(body).encode(), headers={
+            "Authorization": "Bearer " + self.key, "Content-Type": "application/json",
+            "Accept": "text/event-stream", "User-Agent": "tako-code/" + VERSION,
+        })
         try:
-            return v["choices"][0]["message"]
-        except (KeyError, IndexError, TypeError):
-            raise CodeError("Free-model gateway returned no assistant message") from None
+            r = urllib.request.build_opener(SameOriginRedirect()).open(req, timeout=180)
+        except urllib.error.HTTPError as e:
+            raise self.http_error(e) from None
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            raise Transient(self.redact(f"Cannot reach Tako VPS: {e}")) from None
+        content, calls = [], {}
+        try:
+            with r:
+                if not r.headers.get("Content-Type", "").startswith("text/event-stream"):
+                    try:
+                        return json.load(r)["choices"][0]["message"]
+                    except (KeyError, IndexError, TypeError, ValueError):
+                        raise Transient("Free-model gateway returned no assistant message") from None
+                for raw in r:
+                    line = raw.decode("utf-8", "replace").strip()
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        event = json.loads(data)
+                    except ValueError:
+                        continue
+                    if event.get("error"):
+                        err = event["error"] if isinstance(event["error"], dict) else {"message": str(event["error"])}
+                        code = err.get("code") if isinstance(err.get("code"), int) else 502
+                        kind = Transient if code in (408, 429) or code >= 500 or "overloaded" in str(err.get("type")) else CodeError
+                        raise kind(self.redact(f"Free model failed: {err.get('message', 'unknown error')}"))
+                    for choice in event.get("choices") or []:
+                        delta = choice.get("delta") or {}
+                        if isinstance(delta.get("content"), str):
+                            content.append(delta["content"])
+                        for call in delta.get("tool_calls") or []:
+                            slot = calls.setdefault(call.get("index", len(calls)), {
+                                "id": "", "type": "function", "function": {"name": "", "arguments": ""}})
+                            slot["id"] = call.get("id") or slot["id"]
+                            fn = call.get("function") or {}
+                            slot["function"]["name"] += fn.get("name") or ""
+                            slot["function"]["arguments"] += fn.get("arguments") or ""
+        except (TimeoutError, OSError, http.client.HTTPException) as e:
+            raise Transient(self.redact(f"Connection to the Tako VPS dropped: {e}")) from None
+        if not content and not calls:
+            raise Transient("Free model returned an empty answer")
+        message = {"role": "assistant", "content": "".join(content) or None}
+        if calls:
+            message["tool_calls"] = [{**calls[k], "id": calls[k]["id"] or f"call_{k}"} for k in sorted(calls)]
+        return message
 
     def runner(self, action, **values):
         return self.request("/v1/code/" + action, {
@@ -834,9 +907,28 @@ def activity(line):
         return first_line(part["text"])
     return None
 
+def cells(ch):
+    """Terminal cells a character takes (wide CJK and emoji take two)."""
+    if unicodedata.combining(ch) or unicodedata.category(ch) == "Cf":
+        return 0
+    return 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+
+def text_width(text):
+    return sum(cells(ch) for ch in ANSI.sub("", text))
+
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
 def clip(text, width):
     text = clean(text)
-    return text if len(text) <= width else text[:max(0, width - 1)] + "…"
+    if text_width(text) <= width:
+        return text
+    out, used = [], 1  # room for the ellipsis
+    for ch in text:
+        if used + cells(ch) > width:
+            break
+        out.append(ch)
+        used += cells(ch)
+    return "".join(out) + "…"
 
 def elapsed(seconds):
     seconds = int(seconds)
@@ -844,43 +936,61 @@ def elapsed(seconds):
 
 def board(state, acts, notes, since, frame=0, width=80, running=True):
     """Lines for the live swarm view. Pure, so it can be tested without a terminal."""
-    width = max(40, width) - 1
+    width = max(40, width) - 2  # a spare column: wrapping a full line would break the redraw
     phase = state.get("phase", "planning")
     engine = ENGINE_NAMES.get(state.get("engine"), state.get("engine") or "agents")
     workers = state.get("workers") or []
     head = f"{engine} × {len(workers)}" if workers else engine
-    lines = [paint("1", clip("▸ " + state.get("task", ""), width)),
-             paint("2", clip(f"  {head} · {phase.replace('_', ' ')} · {elapsed(time.monotonic() - since)}", width)), ""]
+    spin = SPINNER[frame % len(SPINNER)]
+    lines = [paint("36", "●") + " " + paint("1", clip(state.get("task", ""), width - 2)),
+             paint("2", clip(f"  └ {head} · {phase.replace('_', ' ')}", width)), ""]
     if not workers:
-        lines.append(f"  {paint('36', SPINNER[frame % len(SPINNER)])} Planning: splitting the task between agents…")
+        lines.append(f"    {paint('36', spin)} Planning: splitting the task between agents…")
     for w in workers:
         p = w.get("phase")
         mark, tint = {"done": ("✓", "32"), "no_changes": ("–", "2"), "failed": ("✗", "31"),
                       "cancelled": ("⊘", "33")}.get(p, (SPINNER[(frame + w.get("id", 0)) % len(SPINNER)], "36"))
         detail = w.get("error") or {"done": "done", "no_changes": "no changes"}.get(p) or acts.get(w.get("id")) or "starting…"
         # Measure plain text first so colors never push a line past the terminal width.
-        rest = clip(f" {w.get('id')}  {clip(w.get('title', ''), 26).ljust(26)}  ", max(0, width - 3))
-        lines.append("  " + paint(tint, mark) + rest + paint("2", clip(detail, max(0, width - 3 - len(rest)))))
+        title = clip(w.get("title", ""), 28)
+        rest = clip(f" {w.get('id')}  {title}{' ' * (28 - text_width(title))}  ", max(0, width - 6))
+        tone = "31" if p == "failed" else "2"
+        lines.append("    " + paint(tint, mark) + rest + paint(tone, clip(detail, max(0, width - 6 - text_width(rest)))))
     if notes:
-        lines += ["", paint("2", clip("  · " + notes[-1], width))]
+        lines += ["", paint("2", clip("    " + notes[-1], width))]
+    took = elapsed(time.monotonic() - since)
     if running:
-        lines += ["", paint("2", "  Ctrl+C cancels the swarm")]
+        lines += ["", paint("35", "  ✻ ") + paint("1", "Working… ") + paint("2", clip(f"{took} · ctrl+c to cancel", width - 14))]
+    else:
+        lines += ["", paint("2", f"  took {took}")]
     return lines
 
 class Screen:
-    """Redraws a block of lines in place; prints plain lines when output is not a terminal."""
+    """Redraws a block of lines in place; prints plain lines when output is not a terminal.
+
+    The block's rows are reserved up front and every frame starts from a saved cursor
+    position, so a line the terminal wraps (or draws wider than expected) cannot make
+    frames pile up: redrawing never depends on counting rows.
+    """
+
+    ROWS = 16  # header, six agents, a note and the footer, with room to spare
 
     def __init__(self):
         self.live = sys.stdout.isatty()
-        self.drawn = 0
+        self.started = False
 
     def draw(self, lines):
         if not self.live:
             return
-        out = (f"\x1b[{self.drawn}F" if self.drawn else "") + "\x1b[J" + "\n".join(lines) + "\n"
-        sys.stdout.write(out)
+        height = shutil.get_terminal_size().lines
+        rows = max(4, min(self.ROWS, height - 2))
+        lines = lines[:rows]
+        if not self.started:
+            # Scroll first so the whole block fits on screen, then remember where it starts.
+            sys.stdout.write("\n" * rows + f"\x1b[{rows}F" + "\x1b7")
+            self.started = True
+        sys.stdout.write("\x1b8\x1b[J" + "\n".join(lines) + "\n")
         sys.stdout.flush()
-        self.drawn = len(lines)
 
 def watch(swarm):
     """Show a swarm live until it finishes. Ctrl+C cancels it."""
@@ -921,32 +1031,43 @@ def watch(swarm):
 def summary(swarm):
     s = swarm.state
     phase = s.get("phase")
+    cols = shutil.get_terminal_size().columns
     print()
     if phase == "ready":
         stat = ""
         with contextlib.suppress(Exception):
             stat = git(swarm.repo, "diff", "--shortstat", s["base"], s["branch"]).stdout.strip()
         tests = s.get("tests") or []
-        checks = "no tests configured (add some with /tests)" if not tests else f"{len(tests)} test command(s) passed"
-        print(paint("32;1", "✓ Ready for review") + paint("2", f"  {stat} · {checks}"))
+        checks = "no tests set (add one with /tests)" if not tests else f"{len(tests)} test command(s) passed"
+        print(paint("32", "●") + " " + paint("1", "Ready for review"))
+        print(paint("2", f"  └ {stat or 'changes ready'} · {checks}"))
         review = [l for l in str(s.get("review", "")).splitlines() if l.strip()][:12]
         if review:
-            print(paint("2", "\n  Review:"))
+            print()
+            print(paint("36", "●") + " " + paint("1", "Review"))
             for line in review:
-                print("  " + clip(line, shutil.get_terminal_size().columns - 3))
-        print(paint("2", "\n  /apply puts the changes on your branch · /diff shows them · or type a new task"))
+                print("  " + clip(line, cols - 4))
+        print()
+        print(paint("2", "  /apply puts it on your branch · /diff shows the changes · or type the next task"))
     elif phase == "needs_attention":
-        print(paint("33;1", "! Needs attention: ") + clean(s.get("error") or "tests failed"))
+        print(paint("33", "●") + " " + paint("1", "Needs attention"))
+        print(paint("2", "  └ ") + clean(s.get("error") or "tests failed"))
         failed = [t for t in s.get("tests") or [] if t.get("exit_code")]
         for t in failed[:1]:
-            print(paint("2", "  $ " + clean(" ".join(t["command"]))))
+            print(paint("2", "    $ " + clean(" ".join(t["command"]))))
             for line in str(t.get("output", "")).splitlines()[-12:]:
-                print("    " + clean(line))
-        print(paint("2", f"  Review branch {s.get('branch', '')} is kept; /diff shows the changes."))
+                print("      " + clip(line, cols - 8))
+        print(paint("2", f"  The review branch {s.get('branch', '')} is kept; /diff shows the changes."))
     elif phase == "cancelled":
-        print(paint("33", "⊘ Cancelled. Worktrees are kept under " + str(swarm.folder)))
+        print(paint("33", "●") + " " + paint("1", "Cancelled"))
+        print(paint("2", "  └ worktrees are kept under " + str(swarm.folder)))
     else:
-        print(paint("31;1", "✗ Failed: ") + clean(s.get("error") or "see the activity above"))
+        print(paint("31", "●") + " " + paint("1", "Failed"))
+        print(paint("2", "  └ ") + clean(s.get("error") or "see the agents above"))
+    failed = [w for w in s.get("workers") or [] if w.get("phase") == "failed"]
+    if failed and phase in ("ready", "needs_attention"):
+        print(paint("33", f"  {len(failed)} of {len(s.get('workers'))} agents failed; their part may be missing. "
+                          "Type the task again to retry it."))
 
 def pair(url, key, name):
     """Connect this PC to a VPS and save the configuration."""
@@ -1054,15 +1175,48 @@ def pick_project(c, ask=None):
             print(paint("31", "  " + clean(e)))
         return last
 
-HELP = """  Type what you want built and press Enter. Commands:
-    /agents N        how many agents run in parallel (1–6)
-    /engine NAME     claude, codex, opencode or builtin
-    /tests CMD …     command that checks the result, e.g. /tests npm test  (/tests off)
-    /project PATH    work in another Git repository
-    /apply           put the last ready swarm's changes on your branch
-    /diff            show the last swarm's changes
-    /status          show connection, project and settings
-    /quit            leave (Ctrl+D also works)"""
+HELP_ROWS = [
+    ("/agents N", "how many agents run in parallel (1–6)"),
+    ("/engine NAME", "claude, codex, opencode or builtin"),
+    ("/tests CMD", "a command that checks the result, e.g. /tests npm test (/tests off)"),
+    ("/project PATH", "work in another folder (/project . for this one)"),
+    ("/apply", "put the last ready swarm's changes on your branch"),
+    ("/diff", "show the last swarm's changes"),
+    ("/status", "connection, project and settings"),
+    ("/update", "install the newest Tako Code"),
+    ("/quit", "leave (ctrl+d also works)"),
+]
+HELP = "\n".join([paint("2", "  Describe what you want built and press Enter. A planner splits it between agents."), ""]
+                 + [f"  {paint('36', cmd.ljust(15))}{paint('2', text)}" for cmd, text in HELP_ROWS])
+
+def box(rows, width):
+    """A rounded box around rows of (possibly colored) text."""
+    inner = max(20, width - 4)
+    out = [paint("2", "╭" + "─" * (inner + 2) + "╮")]
+    for row in rows:
+        row = row if text_width(row) <= inner else clip(ANSI.sub("", row), inner)
+        out.append(paint("2", "│ ") + row + " " * (inner - text_width(row)) + paint("2", " │"))
+    out.append(paint("2", "╰" + "─" * (inner + 2) + "╯"))
+    return out
+
+def banner(c, pid, engine, workers):
+    cols = shutil.get_terminal_size().columns
+    project = c.get("projects", {}).get(pid)
+    host = urllib.parse.urlsplit(c.get("url", "")).hostname or c.get("url", "")
+    rows = [paint("35", "◆ ") + paint("1", "tako code") + paint("2", f"  {VERSION}"), "",
+            paint("2", "  project  ") + (f"{project['name']}" + paint("2", f"  {short_path(project['path'])}") if project
+                                         else paint("33", "none · /project . uses this folder")),
+            paint("2", "  agents   ") + f"{workers} × {ENGINE_NAMES.get(engine, engine)}",
+            paint("2", "  models   ") + "free only" + paint("2", f" · {host}")]
+    return "\n".join(box(rows, min(cols - 1, 64)))
+
+def prompt_rule(c, pid, engine, workers):
+    """The line above the input: what a task would run with."""
+    cols = shutil.get_terminal_size().columns
+    project = c.get("projects", {}).get(pid)
+    info = f" {workers} × {ENGINE_NAMES.get(engine, engine)} · {project['name'] if project else 'no project'} "
+    info = clip(info, max(10, cols - 8))
+    return paint("2", "─" * 2 + info + "─" * max(0, cols - 3 - text_width(info)))
 
 def show_diff(job_id):
     patch = HOME / "jobs" / job_id / "changes.patch"
@@ -1075,12 +1229,138 @@ def show_diff(job_id):
 
 def status_line(c, pid, engine, workers):
     project = c.get("projects", {}).get(pid)
-    where = f"{project['name']} ({project['path']})" if project else "no project: cd into a Git repository or use /project PATH"
-    return f"  {where}\n  {workers} × {ENGINE_NAMES.get(engine, engine)} · free models via {c['url']}"
+    where = f"{project['name']} ({project['path']})" if project else "no project: /project . uses this folder"
+    return (paint("2", "  project  ") + where + "\n" + paint("2", "  agents   ") + f"{workers} × {ENGINE_NAMES.get(engine, engine)}"
+            + "\n" + paint("2", "  models   ") + f"free only · {c['url']}")
+
+# ---- self-update ------------------------------------------------------------------
+
+RELEASES = "https://github.com/real-kijmoshi/tako/releases"
+UPDATE_EVERY = 6 * 3600
+
+def version_tuple(v):
+    return tuple(int(x) for x in re.findall(r"\d+", str(v))[:3])
+
+def asset_name():
+    system = {"Darwin": "macos", "Linux": "linux", "Windows": "windows"}.get(platform.system())
+    if not system:
+        return None
+    arch = "aarch64" if platform.machine().lower() in ("arm64", "aarch64") else "x86_64"
+    return f"tako-code-{system}-{arch}" + (".exe" if system == "windows" else "")
+
+def fetch(url, limit=300 << 20, timeout=60):
+    req = urllib.request.Request(url, headers={"User-Agent": "tako-code/" + VERSION})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        data = r.read(limit + 1)
+    if len(data) > limit:
+        raise CodeError("Download is unexpectedly large")
+    return data
+
+def latest_tag(timeout=5):
+    # /releases/latest redirects to /releases/tag/vX.Y.Z: no API token or rate limit involved.
+    req = urllib.request.Request(RELEASES + "/latest", method="HEAD", headers={"User-Agent": "tako-code/" + VERSION})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        tag = r.geturl().rstrip("/").rsplit("/", 1)[-1]
+    if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+        raise CodeError("Could not read the latest release version")
+    return tag
+
+class Update:
+    """Download a newer release, verify it, and swap it in for this executable."""
+
+    def __init__(self):
+        self.tag = self.new = None
+        self.error = None
+
+    def check(self, force=False):
+        """Find and download a newer release. Returns its tag, or None when up to date."""
+        state = load(HOME / "update.json")
+        if not force and time.time() - state.get("checked", 0) < UPDATE_EVERY:
+            return None
+        state["checked"] = time.time()
+        save(HOME / "update.json", state)
+        tag = latest_tag()
+        if version_tuple(tag) <= version_tuple(VERSION):
+            return None
+        self.tag = tag
+        if not getattr(sys, "frozen", False):
+            raise CodeError(f"Tako Code {tag} is available. This copy runs from Python; get the new one at {RELEASES}/latest")
+        asset = asset_name()
+        if not asset:
+            raise CodeError("No Tako Code build for this system")
+        base = f"{RELEASES}/download/{tag}/"
+        sums = [line.split() for line in fetch(base + "SHA256SUMS", 1 << 20).decode("utf-8", "replace").splitlines()]
+        want = [row[0].lower() for row in sums if len(row) == 2 and row[1].lstrip("*") == asset]
+        if len(want) != 1 or not re.fullmatch(r"[0-9a-f]{64}", want[0]):
+            raise CodeError(f"{tag} has no checksum for {asset}")
+        data = fetch(base + asset)
+        if hashlib.sha256(data).hexdigest() != want[0]:
+            raise CodeError(f"The {tag} download did not match its checksum; not installed")
+        exe = Path(sys.executable).resolve()
+        new = exe.with_name(exe.name + ".new")
+        new.write_bytes(data)
+        new.chmod(0o755)
+        self.new = new
+        return tag
+
+    def install(self):
+        """Swap the verified download in. Quick, so it runs while quitting."""
+        if not self.new:
+            return None
+        exe = Path(sys.executable).resolve()
+        if os.name == "nt":
+            # Windows lets a running program be renamed but not overwritten.
+            old = exe.with_name(exe.name + ".old")
+            with contextlib.suppress(OSError):
+                old.unlink()
+            os.replace(exe, old)
+            try:
+                os.replace(self.new, exe)
+            except OSError:
+                os.replace(old, exe)
+                raise
+        else:
+            os.replace(self.new, exe)  # a rename: the running copy keeps its old file
+        state = load(HOME / "update.json")
+        state["installed"], state["announced"] = self.tag, False
+        save(HOME / "update.json", state)
+        self.new = None
+        return self.tag
+
+    def background(self):
+        try:
+            self.check()
+        except (CodeError, OSError, ValueError) as e:  # never get in the way of the session
+            self.error = str(e)
+
+def announce_update():
+    """After an update, say so once."""
+    with contextlib.suppress(CodeError, OSError):
+        state = load(HOME / "update.json")
+        if state.get("installed") == "v" + VERSION and not state.get("announced"):
+            state["announced"] = True
+            save(HOME / "update.json", state)
+            print(paint("32", f"  ✓ Updated to {VERSION}") + paint("2", f" · what's new: {RELEASES}/tag/v{VERSION}"))
+        if getattr(sys, "frozen", False) and os.name == "nt":
+            with contextlib.suppress(OSError):
+                Path(sys.executable).resolve().with_name(Path(sys.executable).name + ".old").unlink()
+
+def update_command():
+    u = Update()
+    print(f"tako-code {VERSION}: checking for updates…")
+    tag = u.check(force=True)
+    if not tag:
+        print("You have the latest version.")
+        return
+    u.install()
+    print(paint("32", f"✓ Updated to {tag}.") + f" Run tako-code again to use it. What's new: {RELEASES}/tag/{tag}")
 
 def tui():
     enable_terminal()
-    print(paint("1", "tako code") + paint("2", f"  {VERSION} · a swarm of coding agents on your PC\n"))
+    announce_update()
+    updater = Update()
+    if getattr(sys, "frozen", False) and not os.environ.get("TAKO_CODE_NO_UPDATE"):
+        threading.Thread(target=updater.background, daemon=True).start()
     c = load(HOME / "config.json")
     if not c.get("url") or not c.get("key"):
         c = onboard()
@@ -1095,17 +1375,20 @@ def tui():
         if pid:
             with contextlib.suppress(CodeError, OSError):
                 runner.announce()  # so the web panel lists the project right away
-        print(status_line(c, pid, engine, workers))
+        print("\x1b[2K" if USE_COLOR else "", end="")
+        print(banner(c, pid, engine, workers))
         if "claude" not in engines:
             print(paint("2", "  Claude Code isn't installed, so agents use " + ENGINE_NAMES[engine] + ". Install it from https://claude.com/claude-code to use Claude Code agents."))
-        print(paint("2", "  Type a task, or /help.\n"))
-        runner.on_job = lambda swarm: print(paint("36", f"\n● Swarm started from the web panel: {clip(swarm.job['task'], 60)}. Press Enter to watch."), flush=True)
+        print(paint("2", "  Describe what to build · /help for commands · ctrl+c cancels a swarm\n"))
+        runner.on_job = lambda swarm: print(paint("36", "\n● ") + "Swarm started from the web panel: " + clip(swarm.job['task'], 50)
+                                            + paint("2", " · press Enter to watch"), flush=True)
         threading.Thread(target=runner.background, daemon=True).start()
         last = None
         try:
             while True:
                 try:
-                    line = input(paint("34;1", "tako ❯ ")).strip()
+                    print(prompt_rule(c, pid, engine, workers))
+                    line = input(paint("1", "❯ ")).strip()
                 except EOFError:
                     break
                 except KeyboardInterrupt:
@@ -1151,6 +1434,14 @@ def tui():
                             tests = [] if arg in ("", "off", "none") else [shlex.split(arg, posix=os.name != "nt")]
                             add_project(c, c["projects"][pid]["path"], tests)
                             print("  Tests: " + (" ".join(tests[0]) if tests else "none") + ". They run on the merged result before review.")
+                        elif cmd == "/update":
+                            tag = updater.check(force=True) if getattr(sys, "frozen", False) else None
+                            if not getattr(sys, "frozen", False):
+                                print("  This copy runs from Python; get the newest at " + RELEASES + "/latest")
+                            elif tag:
+                                print(paint("32", f"  ✓ {tag} downloaded and verified; it installs when you quit."))
+                            else:
+                                print("  You have the latest version.")
                         elif cmd == "/status":
                             print(status_line(c, pid, engine, workers))
                             print("  " + ("connected" if not runner.error else "connection problem: " + runner.error))
@@ -1163,11 +1454,11 @@ def tui():
                                 raise CodeError("No swarm yet")
                             apply(last.job["id"])
                             last.state["phase"] = "applied"
-                            print(paint("32", "  ✓ The changes are now on your branch (fast-forward). Nothing was pushed."))
+                            print(paint("32", "●") + " The changes are on your branch" + paint("2", " (fast-forward; nothing was pushed)"))
                         else:
                             print("  Unknown command. Type /help.")
                     except CodeError as e:
-                        print(paint("31", "  " + clean(e)))
+                        print(paint("31", "  └ " + clean(e)))
                     continue
                 # Anything else is a task for the swarm.
                 try:
@@ -1178,13 +1469,19 @@ def tui():
                         raise CodeError("Your repository has uncommitted changes. Commit or stash them first; agents start from your last commit.")
                     last = runner.submit(pid, engine, workers, line)
                 except CodeError as e:
-                    print(paint("31", "  " + clean(e)))
+                    print(paint("31", "  └ " + clean(e)))
                     continue
+                print()
                 watch(last)
         finally:
             if runner.active and runner.active.thread.is_alive():
                 print("Stopping the running swarm; worktrees are preserved…")
             runner.shutdown()
+            try:
+                if updater.install():
+                    print(paint("32", f"✓ Updated to {updater.tag}.") + paint("2", " It starts next time you run tako-code."))
+            except OSError as e:
+                print(paint("2", f"Could not install the update ({e}); run tako-code update later."))
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="tako-code", description="Local coding swarms, free-model routing on your Tako VPS. No code executes on the VPS.")
@@ -1205,6 +1502,7 @@ def main(argv=None):
     ap = sub.add_parser("apply", help="Apply a reviewed job to an unchanged local branch")
     ap.add_argument("job")
     sub.add_parser("version")
+    sub.add_parser("update", help="Install the latest Tako Code now (it also updates itself in the background)")
     argv = sys.argv[1:] if argv is None else argv
     if not argv:
         return tui()
@@ -1212,6 +1510,8 @@ def main(argv=None):
     if args.command == "version":
         print("tako-code " + VERSION)
         return
+    if args.command == "update":
+        return update_command()
     if args.command == "setup":
         url = validate_url(args.url or input("Tako VPS URL (https://…): "))
         key = os.environ.get("TAKO_CODE_API_KEY") or getpass.getpass("Tako client key (Access & keys on the VPS): ")

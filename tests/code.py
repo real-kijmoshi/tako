@@ -1,6 +1,7 @@
 """PC worker, Git integration and hosted free-only gateway regression checks."""
 import importlib.util
 import json
+import hashlib
 import os
 from pathlib import Path
 import socket
@@ -172,6 +173,46 @@ class Client(unittest.TestCase):
         asked.clear()
         self.assertEqual(code.prepare_repo(self.repo, yes), self.repo.resolve())
         self.assertEqual(asked, [], 'a normal repository needs no questions')
+    def test_self_update_installs_only_verified_releases(self):
+        good = b'new tako-code build'
+        files = {}
+        class Releases(BaseHTTPRequestHandler):
+            def log_message(self, *a): pass
+            def do_HEAD(self): self.do_GET()
+            def do_GET(self):
+                if self.path == '/latest':
+                    self.send_response(302); self.send_header('Location', '/tag/v9.9.9'); self.end_headers(); return
+                body = b'release page' if self.path.startswith('/tag/') else files.get(self.path)
+                if body is None:
+                    self.send_response(404); self.end_headers(); return
+                self.send_response(200); self.send_header('Content-Length', str(len(body))); self.end_headers()
+                if self.command == 'GET': self.wfile.write(body)
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Releases)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        asset = code.asset_name()
+        exe = self.folder / 'bin' / ('tako-code.exe' if os.name == 'nt' else 'tako-code'); exe.parent.mkdir(); exe.write_bytes(b'old build')
+        try:
+            with patch.object(code, 'RELEASES', f'http://127.0.0.1:{server.server_port}'), patch.object(code.sys, 'frozen', True, create=True), \
+                 patch.object(code.sys, 'executable', str(exe)):
+                files['/download/v9.9.9/' + asset] = good
+                files['/download/v9.9.9/SHA256SUMS'] = (hashlib.sha256(b'something else').hexdigest() + '  ' + asset + '\n').encode()
+                u = code.Update()
+                with self.assertRaises(code.CodeError):
+                    u.check(force=True)
+                self.assertIsNone(u.install())
+                self.assertEqual(exe.read_bytes(), b'old build', 'a mismatched download is never installed')
+                files['/download/v9.9.9/SHA256SUMS'] = (hashlib.sha256(good).hexdigest() + '  ' + asset + '\n').encode()
+                u = code.Update()
+                self.assertEqual(u.check(force=True), 'v9.9.9')
+                self.assertEqual(exe.read_bytes(), b'old build', 'nothing changes until the swap')
+                self.assertEqual(u.install(), 'v9.9.9')
+                self.assertEqual(exe.read_bytes(), good)
+                self.assertIsNone(code.Update().check(), 'checks at most every few hours')
+                with patch.object(code, 'VERSION', '9.9.9'), patch('builtins.print') as shown:
+                    code.announce_update(); code.announce_update()
+                self.assertEqual(len(shown.call_args_list), 1, 'says "Updated" once')
+        finally:
+            server.shutdown(); server.server_close()
     def test_job_ids_from_vps_cannot_name_paths(self):
         for bad in ['../../etc', '0123456789ABCDEF', '0123456789abcde/', '']:
             with self.assertRaises(code.CodeError):
@@ -199,11 +240,19 @@ class Client(unittest.TestCase):
 class Provider(BaseHTTPRequestHandler):
     seen = []
     fail = False
+    delay = 0          # seconds before answering, like a slow free model
+    json_only = False  # answer with plain JSON even when a stream was requested
+    tool = False       # answer with a tool call
     def log_message(self, *args): pass
     def do_POST(self):
         data = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         self.seen.append(data['model'])
-        if data.get('stream') and not self.fail:
+        time.sleep(self.delay)
+        if self.tool and not self.fail:
+            value = {'id': 'fixture', 'object': 'chat.completion', 'choices': [{'index': 0, 'finish_reason': 'tool_calls', 'message': {'role': 'assistant', 'content': None,
+                     'tool_calls': [{'id': 'call_9', 'type': 'function', 'function': {'name': 'write_file', 'arguments': '{"path": "a.py"}'}}]}}]}
+            self.send_response(200); self.send_header('Content-Type', 'application/json'); self.end_headers(); self.wfile.write(json.dumps(value).encode()); return
+        if data.get('stream') and not self.fail and not self.json_only:
             events = [{'id':'fixture','model':data['model'],'choices':[{'index':0,'delta':{'role':'assistant','content':'Free response'},'finish_reason':None}]}, {'choices':[{'index':0,'delta':{},'finish_reason':'stop'}],'usage':{'prompt_tokens':10,'completion_tokens':2}}]
             body = ''.join('data: '+json.dumps(event)+'\n\n' for event in events)+'data: [DONE]\n\n'
             self.send_response(200); self.send_header('Content-Type','text/event-stream'); self.send_header('Content-Length',str(len(body.encode()))); self.end_headers(); self.wfile.write(body.encode()); return
@@ -255,6 +304,44 @@ paid-route=["paid/billed-model"]
             with urlopen(request, timeout=10) as response: return response.status, json.load(response)
         except HTTPError as e:
             with e: return e.code, json.load(e)
+    def test_streaming_keeps_slow_free_models_alive(self):
+        # Proxies like Cloudflare drop a request after ~100 s without a byte (HTTP 524).
+        for provider in ['paid', 'kilo']:
+            self.request('/api/action', {'action': 'provider.add', 'provider': provider, 'base_url': f'http://127.0.0.1:{self.upstream.server_port}/v1', 'key': 'fixture-key'})
+        api = code.Api({'url': self.base, 'key': 'router-secret'})
+        try:
+            Provider.delay, Provider.json_only = 2, True
+            started = time.monotonic()
+            req = Request(self.base + '/code/v1/chat/completions', data=json.dumps({'model': 'x', 'stream': True, 'messages': [{'role': 'user', 'content': 'hi'}]}).encode(),
+                          headers={'Authorization': 'Bearer router-secret', 'Content-Type': 'application/json'})
+            with urlopen(req, timeout=10) as stream:
+                self.assertEqual(stream.headers['Content-Type'], 'text/event-stream')
+                self.assertEqual(stream.readline(), b': keepalive\n')
+                self.assertLess(time.monotonic() - started, 1.5, 'answered before the model finished')
+                rest = stream.read().decode()
+            self.assertIn('Free response', rest)
+            self.assertTrue(rest.rstrip().endswith('data: [DONE]'))
+            self.assertEqual(api.complete([{'role': 'user', 'content': 'hi'}])['content'], 'Free response')
+            Provider.delay, Provider.tool = 0, True
+            message = api.complete([{'role': 'user', 'content': 'hi'}], [{'type': 'function', 'function': {'name': 'write_file', 'parameters': {'type': 'object'}}}])
+            self.assertEqual(message['tool_calls'][0]['id'], 'call_9')
+            self.assertEqual(json.loads(message['tool_calls'][0]['function']['arguments']), {'path': 'a.py'})
+            # Claude Code reads Anthropic events; a tool call must arrive as a tool_use block.
+            req = Request(self.base + '/code/v1/messages', data=json.dumps({'model': 'claude-x', 'max_tokens': 50, 'stream': True, 'messages': [{'role': 'user', 'content': 'hi'}]}).encode(),
+                          headers={'x-api-key': 'router-secret', 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01'})
+            with urlopen(req, timeout=10) as stream:
+                body = stream.read().decode()
+            names = [l[7:] for l in body.splitlines() if l.startswith('event: ')]
+            self.assertEqual(names[0], 'message_start'); self.assertEqual(names[-1], 'message_stop')
+            self.assertIn('"type":"tool_use"', body.replace(' ', ''))
+            self.assertIn('input_json_delta', body)
+            # Errors become stream error events; tako-code retries them, then gives up clearly.
+            Provider.tool, Provider.fail = False, True
+            with patch.object(code.Api, 'RETRY_DELAYS', (0,)), self.assertRaises(code.Transient) as failed:
+                api.complete([{'role': 'user', 'content': 'hi'}])
+            self.assertIn('Free model failed', str(failed.exception))
+        finally:
+            Provider.delay, Provider.json_only, Provider.tool, Provider.fail = 0, False, False, False
     def test_auth_runner_ownership_and_strict_free_routing(self):
         for path, body in [('/v1/code/capabilities', None), ('/v1/code/register', {'runner': 'pc'}), ('/code/v1/models', None), ('/code/v1/chat/completions', {'model': 'paid/model'})]:
             self.assertEqual(self.request(path, body, {})[0], 401, path)

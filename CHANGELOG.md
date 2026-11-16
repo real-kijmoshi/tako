@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.11 — 2026-11-16
+
+- Stop agents failing with HTTP 524 behind Cloudflare and other proxies. Streaming requests to the Tako Code gateway are answered immediately and kept alive while a slow free model thinks; plain JSON answers and errors are delivered as stream events (OpenAI and Anthropic formats), so Claude Code and OpenCode retry them as usual.
+- Make the built-in agent, planner and reviewer stream, and retry rate limits, overloaded models, timeouts and dropped connections three times (after 5, 20 and 60 seconds) before giving up.
+- Redesign the terminal screen: a welcome box with project, agents and server; a status line above the prompt; a cleaner live view of agents and a clearer summary, including how many agents failed.
+- Fix the live view occasionally repeating its header lines: it now redraws from a reserved block of lines instead of counting rows.
+- Add self-update: `tako-code` checks for a new release at most every six hours, downloads and verifies it in the background, and installs it when you quit. `tako-code update` (or `/update`) updates now; `TAKO_CODE_NO_UPDATE=1` turns it off.
+- Web panel: preselect Claude Code (then Codex, OpenCode) when the PC has it, and explain how to add a project when there is none.
+
 ## 0.1.10 — 2026-11-16
 
 - Set up new projects from `tako-code`: in a folder that isn't a Git repository, or a repository with no commits (right after `git init`), it now offers to create the repository and the first commit, listing the files first. Previously it showed a raw `git rev-parse` error.
