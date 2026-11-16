@@ -629,7 +629,9 @@ dialog .description { margin-bottom: 18px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .skip-link { position: fixed; top: -60px; left: 16px; z-index: 100; padding: 12px; background: var(--surface); }
 .skip-link:focus { top: 12px; }
-.onboarding { margin-bottom: 20px; border-top: 3px solid var(--blue); }
+.onboarding { position: relative; margin-bottom: 20px; border-top: 3px solid var(--blue); }
+.onboarding h2 { padding-right: 40px; }
+.setup-dismiss { position: absolute; top: 12px; right: 12px; }
 .setup-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
 .setup-step { display: flex; gap: 12px; align-items: start; }
 .step-dot { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border: 1px solid var(--rule); border-radius: 50%; color: var(--text-2); font: 700 13px var(--sign); }
@@ -1965,8 +1967,10 @@ button:disabled { cursor: not-allowed; }
     workspaceKey = key;
     renderProviders(); renderRoutes(); renderConnect(); updateChatModels(); renderSetup();
   }
+  let setupDismissed = (() => { try { return localStorage.getItem("tako-setup-dismissed") === "1"; } catch { return false; } })();
   function renderSetup() {
     const box = $('onboarding');
+    if (setupDismissed) { box.hidden = true; return; }
     if (!overview) return;
     const connected = Object.keys(overview.providers || {}).length > 0;
     const routed = Object.keys(overview.combos || {}).length > 0;
@@ -1980,7 +1984,12 @@ button:disabled { cursor: not-allowed; }
       [routed, 'Build a fallback combo', 'Pick models and the order tako should try them.', 'routes', 'Set up combo'],
       [served, 'Send your first request', 'Try the playground, then connect your tools.', 'chat', 'Open playground'],
     ];
-    box.innerHTML = `<h2>${connected && routed ? 'Your router is ready' : 'A few stops to your first request'}<span class="count">${steps.filter(s => s[0]).length} of 3 complete</span></h2><div class="setup-steps">${steps.map(([done, title, text, dest, label], i) => `<div class="setup-step ${done ? 'complete' : ''}"><span class="step-dot" aria-label="${done ? 'Complete' : 'Step ' + (i + 1)}">${done ? '✓' : i + 1}</span><div><h3>${title}</h3><p>${text}</p><button class="btn" data-setup="${dest}">${done ? 'Review' : label}</button></div></div>`).join('')}</div>`;
+    box.innerHTML = `<button type="button" class="icon-btn setup-dismiss" aria-label="Hide setup checklist" title="Hide setup checklist">${ic("x")}</button><h2>${connected && routed ? 'Your router is ready' : 'A few stops to your first request'}<span class="count">${steps.filter(s => s[0]).length} of 3 complete</span></h2><div class="setup-steps">${steps.map(([done, title, text, dest, label], i) => `<div class="setup-step ${done ? 'complete' : ''}"><span class="step-dot" aria-label="${done ? 'Complete' : 'Step ' + (i + 1)}">${done ? '✓' : i + 1}</span><div><h3>${title}</h3><p>${text}</p><button class="btn" data-setup="${dest}">${done ? 'Review' : label}</button></div></div>`).join('')}</div>`;
+    box.querySelector('.setup-dismiss').onclick = () => {
+      setupDismissed = true;
+      box.hidden = true;
+      try { localStorage.setItem('tako-setup-dismissed', '1'); } catch {}
+    };
     box.querySelectorAll('[data-setup]').forEach(b => b.onclick = () => navigate(b.dataset.setup));
   }
   // ---- providers ----
@@ -2103,12 +2112,14 @@ button:disabled { cursor: not-allowed; }
       const q = $('model-search').value.toLowerCase(), free = $('models-free').checked;
       const visible = models.filter(m => m.id.toLowerCase().includes(q) && (!free || m.free));
       $('model-count').textContent = `${visible.length} shown · ${picked.size} selected`;
-      $('model-list').innerHTML = visible.length ? visible.map(m => `<label class="model-option"><input type="checkbox" data-target="${esc(m.target)}" ${picked.has(m.target) ? 'checked' : ''}><span>${esc(m.id)}</span>${m.free ? '<span class="tag">free</span>' : ''}</label>`).join('') : '<div class="empty">No matching models.</div>';
+      $('model-list').innerHTML = visible.length ? visible.map(m => `<label class="model-option"><input type="checkbox" data-target="${esc(m.target)}" ${picked.has(m.target) ? 'checked' : ''}><span>${esc(m.id)}</span>${m.recommended ? '<span class="tag">Recommended</span>' : ''}${m.free ? '<span class="tag">free tier</span>' : ''}</label>`).join('') : '<div class="empty">No matching models.</div>';
       $('model-list').querySelectorAll('input').forEach(c => c.onchange = () => { c.checked ? picked.add(c.dataset.target) : picked.delete(c.dataset.target); $('model-count').textContent = `${visible.length} shown · ${picked.size} selected`; });
     }
     async function loadModels() {
+      const entry = catalog.find(e => e.id === $('model-provider').value);
+      $('models-free').checked = entry?.free_filter && (entry?.tier === 'FREE' || entry?.tier === 'LOCAL');
       const current = ++generation; models = []; $('model-list').innerHTML = '<div class="skeleton"></div>'.repeat(6); $('model-load-error').textContent = '';
-      try { const v = await action({ action: 'models', provider: $('model-provider').value }); if (current !== generation || version !== dialogVersion || !$('model-provider')) return; models = v.models; drawModels(); }
+      try { const v = await action({ action: 'models', provider: $('model-provider').value }); if (current !== generation || version !== dialogVersion || !$('model-provider')) return; models = v.models; $('model-load-error').textContent = v.warning || ''; drawModels(); }
       catch (e) { if (current !== generation || version !== dialogVersion || !$('model-provider')) return; $('model-list').innerHTML = '<div class="empty">Model list unavailable.</div>'; $('model-load-error').textContent = e.message + ' You can also add known IDs in Combos → Edit targets.'; }
     }
     $('model-provider').onchange = loadModels; $('model-search').oninput = drawModels; $('models-free').onchange = drawModels; loadModels();

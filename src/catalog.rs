@@ -2,7 +2,7 @@
 //!
 //! Free tiers and model names change often, so the TUI fetches each provider's
 //! live model list; `models` here are only the suggested picks.
-//! Last checked: 15 November 2026 (OpenRouter and NVIDIA against their live lists).
+//! Last checked: 16 November 2026. Sources and selection notes: docs/providers.md.
 
 use crate::config::Wire;
 
@@ -28,8 +28,6 @@ impl Tier {
 pub enum FreeRule {
     All,
     None,
-    /// model id contains this (e.g. "flash")
-    Contains(&'static str),
     /// OpenRouter style: id ends in ":free" or pricing is zero
     OpenRouter,
     /// exactly these ids
@@ -66,7 +64,6 @@ impl Entry {
         match self.free {
             FreeRule::All => true,
             FreeRule::None => false,
-            FreeRule::Contains(s) => model.contains(s),
             FreeRule::OpenRouter => {
                 priced_free
                     || model.ends_with(":free")
@@ -79,6 +76,102 @@ impl Entry {
 }
 
 pub const ALL: &[Entry] = &[
+    Entry {
+        id: "nous",
+        name: "Nous Portal",
+        tier: Tier::Free,
+        wire: Wire::Openai,
+        base_url: "https://inference-api.nousresearch.com/v1",
+        key_url: "https://portal.nousresearch.com/api-keys",
+        blurb: "Free LongCat 2.5, Step 3.7 Flash and Solar Mini 4 alongside paid frontier models. A Portal API key works with this OpenAI-compatible endpoint.",
+        limits: "Only models explicitly marked :free or priced at zero are free. API keys use model pricing; paid models consume credits. Promotions and account limits can change.",
+        models: &["meituan/longcat-2.5:free", "stepfun/step-3.7-flash:free", "upstage/solar-mini4:free"],
+        models_url: None,
+        free: FreeRule::OpenRouter,
+        max_tokens: None,
+        list_incomplete: false,
+        list_headers: &[],
+    },
+    Entry {
+        id: "modelscope",
+        name: "ModelScope",
+        tier: Tier::Free,
+        wire: Wire::Openai,
+        base_url: "https://api-inference.modelscope.cn/v1",
+        key_url: "https://modelscope.cn/my/myaccesstoken",
+        blurb: "Free ModelScope-hosted inference, including DeepSeek, Qwen, GLM, Kimi and StepFun. Use a ModelScope access token, not an Alibaba DashScope key.",
+        limits: "Up to 2,000 calls/day per account, at most 200/day per model; actual model quotas can be lower. Single-request concurrency is recommended. Applies to ModelScope-hosted inference, not commercial partner endpoints.",
+        models: &["deepseek-ai/DeepSeek-V4.1-Flash", "ZhipuAI/GLM-5.2", "stepfun-ai/Step-5-Preview", "Qwen/Qwen3.8-27B", "moonshotai/Kimi-K3.1-Pro", "MiniMax/MiniMax-M3"],
+        models_url: None,
+        free: FreeRule::All,
+        max_tokens: None,
+        list_incomplete: false,
+        list_headers: &[],
+    },
+    Entry {
+        id: "siliconflow",
+        name: "SiliconFlow (China)",
+        tier: Tier::Free,
+        wire: Wire::Openai,
+        base_url: "https://api.siliconflow.cn/v1",
+        key_url: "https://cloud.siliconflow.cn/account/ak",
+        blurb: "Selected small open models have zero input and output prices. Xing4.0 is the larger reasoning choice; Qwen3 8B and Qwen3.5 4B are lighter fallbacks.",
+        limits: "Only the named zero-priced models are marked free. Pro variants and larger models are paid. This is the China service; account verification and model-specific rate limits may apply.",
+        models: &["XingChenAGI/Xing4.0-29B", "Qwen/Qwen3-8B", "Qwen/Qwen3.5-4B", "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B", "THUDM/GLM-4-9B-0414", "THUDM/GLM-Z1-9B-0414", "Qwen/Qwen2.5-7B-Instruct", "tencent/Hunyuan-MT-7B"],
+        models_url: None,
+        free: FreeRule::Only(&["XingChenAGI/Xing4.0-29B", "Qwen/Qwen3-8B", "Qwen/Qwen3.5-4B", "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B", "THUDM/GLM-4-9B-0414", "THUDM/GLM-Z1-9B-0414", "Qwen/Qwen2.5-7B-Instruct", "tencent/Hunyuan-MT-7B"]),
+        max_tokens: None,
+        list_incomplete: false,
+        list_headers: &[],
+    },
+    Entry {
+        id: "blockrun",
+        name: "BlockRun (free endpoint)",
+        tier: Tier::Free,
+        wire: Wire::Openai,
+        base_url: "https://blockrun.ai/api/v1",
+        key_url: "",
+        blurb: "Anonymous free inference with Nemotron reasoning models, Laguna coding and Muse Glimmer. Use this free endpoint without a key or wallet.",
+        limits: "Fair-use and upstream availability limits apply. Unavailable models are hidden from the live picker. Paid BlockRun services use separate billing; free model aliases may fall back to another healthy free model.",
+        models: &["poolside/laguna-xs-2.1", "nvidia/nemotron-3-ultra-550b", "nvidia/nemotron-3.5-lightning", "nvidia/nemotron-3.5-bolt"],
+        models_url: None,
+        free: FreeRule::Only(&["poolside/laguna-xs-2.1", "nvidia/nemotron-3-ultra-550b", "nvidia/nemotron-3.5-lightning", "nvidia/muse-glimmer-30b", "nvidia/nemotron-3.5-bolt"]),
+        max_tokens: None,
+        list_incomplete: false,
+        list_headers: &[],
+    },
+    Entry {
+        id: "novita",
+        name: "Novita (Apodex promotion)",
+        tier: Tier::Free,
+        wire: Wire::Openai,
+        base_url: "https://api.novita.ai/v3/openai",
+        key_url: "https://novita.ai/settings/key-management",
+        blurb: "Apodex 1.1 Mini is a coding and tool-use model with a 256K context, currently listed at zero input and output cost. Other Novita models are metered.",
+        limits: "Apodex 1.1 Mini is a launch promotion, not permanent free access. Verify its current price in the dashboard; account and promotional limits apply.",
+        models: &["apodex/apodex-1.1-mini"],
+        models_url: None,
+        free: FreeRule::Only(&["apodex/apodex-1.1-mini"]),
+        max_tokens: None,
+        list_incomplete: false,
+        list_headers: &[],
+    },
+    Entry {
+        id: "vikasit",
+        name: "Vikasit AI (Nova allowance)",
+        tier: Tier::Free,
+        wire: Wire::Openai,
+        base_url: "https://api.vikasit.ai/v1",
+        key_url: "https://vikasit.ai/inference",
+        blurb: "Vikasit Nova offers a daily free allowance for general chat and coding. Other Vikasit and ecosystem models are pay-as-you-go.",
+        limits: "Nova only: 2 million tokens/day, no card required, subject to fair use and changing account limits. Do not select paid Vikasit models for a free combo.",
+        models: &["vikasit-nova"],
+        models_url: None,
+        free: FreeRule::Only(&["vikasit-nova"]),
+        max_tokens: None,
+        list_incomplete: true,
+        list_headers: &[],
+    },
     Entry {
         id: "zai",
         name: "Z.ai (GLM)",
@@ -104,7 +197,7 @@ pub const ALL: &[Entry] = &[
         key_url: "https://openrouter.ai/settings/keys",
         blurb: "One key for hundreds of models. Models ending in :free cost nothing; openrouter/free picks whichever free model is available.",
         limits: "Free models: 20 requests/min and 50/day, or 1000/day after a one-time $10 credit purchase. The free lineup changes often.",
-        models: &["openrouter/free", "nvidia/nemotron-3-ultra-550b-a55b:free", "cohere/north-mini-code:free", "google/gemma-4-31b-it:free"],
+        models: &["inclusionai/ling-3.2-flash:free", "cohere/north-mini-code:free", "nvidia/nemotron-3-ultra-550b-a55b:free", "nvidia/nemotron-3.5-super-vl:free", "thinkingmachines/inkling-2-small:free", "google/gemma-4-31b-it:free", "openrouter/free"],
         models_url: None,
         free: FreeRule::OpenRouter,
         max_tokens: None,
@@ -136,7 +229,7 @@ pub const ALL: &[Entry] = &[
         key_url: "https://build.nvidia.com/settings/api-keys",
         blurb: "NVIDIA-hosted open models (DeepSeek, Kimi, Qwen, GLM, MiniMax and more), free for development use.",
         limits: "Free with an NVIDIA developer account. Around 40 requests/min.",
-        models: &["z-ai/glm-5.3-flash", "deepseek-ai/deepseek-v4.1-flash", "moonshotai/kimi-k2.6", "minimaxai/minimax-m3.1-flash"],
+        models: &["deepseek-ai/deepseek-v4.1-flash", "z-ai/glm-5.3-flash", "minimaxai/minimax-m3.1-flash", "stepfun-ai/step-5-preview", "mistralai/mistral-large-4-1t-a52b", "nvidia/nemotron-3-ultra-550b-a55b", "poolside/laguna-xs-2.1"],
         models_url: None,
         free: FreeRule::All,
         max_tokens: None,
@@ -150,11 +243,11 @@ pub const ALL: &[Entry] = &[
         wire: Wire::Openai,
         base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
         key_url: "https://aistudio.google.com/apikey",
-        blurb: "Gemini Flash models through Google AI Studio, with a 1M-token context.",
-        limits: "Flash models are free with small daily caps. Outside the EU/UK, free-tier prompts may be used for training.",
-        models: &["gemini-flash-latest", "gemini-flash-lite-latest"],
+        blurb: "Gemini through Google AI Studio. Gemini 3.8 Flash is the general-purpose pick; Flash-Lite is the quick fallback. Only documented free-tier text models are marked free.",
+        limits: "Free-tier quotas depend on the model, project and region. Paid-tier projects are billed at paid rates. Omni Flash and image/audio-only models are not automatically free chat models. Free-tier data terms apply.",
+        models: &["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
         models_url: None,
-        free: FreeRule::Contains("flash"),
+        free: FreeRule::Only(&["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-2.5-flash-lite"]),
         max_tokens: None,
         list_incomplete: false,
         list_headers: &[],
@@ -168,7 +261,7 @@ pub const ALL: &[Entry] = &[
         key_url: "",
         blurb: "Free coding models through Kilo Gateway. Anonymous access works for free models; prompts may be used for training by upstream providers.",
         limits: "Free models: 200 requests/hour per IP. Select kilo-auto/free or a model explicitly marked free. The lineup changes often.",
-        models: &["kilo-auto/free", "cohere/north-mini-code:free"],
+        models: &["cohere/north-mini-code:free", "nvidia/nemotron-3-ultra-550b-a55b:free", "nvidia/nemotron-3.5-super-vl:free", "kilo-auto/free"],
         models_url: None,
         free: FreeRule::OpenRouter,
         max_tokens: None,
@@ -216,11 +309,11 @@ pub const ALL: &[Entry] = &[
         key_url: "https://playground.opentyphoon.ai/api-keys",
         blurb: "Thai and English models with free API access for light usage and prototyping. A secondary fallback rather than a primary coding model.",
         limits: "Listed text models: up to 5 requests/second and 200/minute. Availability and usage limits apply.",
-        models: &["typhoon-v2.5-30b-a3b-instruct", "typhoon-v2.1-12b-instruct"],
+        models: &["typhoon-v2.5-30b-a3b-instruct"],
         models_url: None,
-        free: FreeRule::Only(&["typhoon-v2.5-30b-a3b-instruct", "typhoon-v2.1-12b-instruct"]),
+        free: FreeRule::Only(&["typhoon-v2.5-30b-a3b-instruct"]),
         max_tokens: None,
-        list_incomplete: true,
+        list_incomplete: false,
         list_headers: &[],
     },
     Entry {
@@ -257,12 +350,12 @@ pub const ALL: &[Entry] = &[
     },
     Entry {
         id: "mistral",
-        name: "Mistral",
+        name: "Mistral (paid API)",
         tier: Tier::Paid,
         wire: Wire::Openai,
         base_url: "https://api.mistral.ai/v1",
         key_url: "https://console.mistral.ai/api-keys",
-        blurb: "Mistral's API includes Codestral and Devstral, models built for coding. API access requires billing activation.",
+        blurb: "Mistral's API includes Codestral and Devstral, models built for coding. API access requires billing activation. For a free hosted Mistral option, connect NVIDIA NIM instead.",
         limits: "Free mode does not include API access. Creating API keys and using the API require billing activation and pay-as-you-go.",
         models: &["devstral-latest", "codestral-latest", "mistral-large-latest"],
         models_url: None,
@@ -379,6 +472,37 @@ mod tests {
             .is_free("@cf/zai-org/glm-5.3", false));
         assert!(!get("vercel").unwrap().is_free("openai/gpt-6", false));
         assert!(get("github").is_none());
+    }
+
+    #[test]
+    fn free_access_is_specific_to_the_provider_and_model() {
+        assert!(get("nous")
+            .unwrap()
+            .is_free("upstage/solar-mini4:free", false));
+        assert!(!get("nous").unwrap().is_free("upstage/solar-mini4", false));
+        assert!(get("siliconflow").unwrap().is_free("Qwen/Qwen3-8B", false));
+        assert!(!get("siliconflow")
+            .unwrap()
+            .is_free("Pro/Qwen/Qwen3-8B", false));
+        assert!(get("vikasit").unwrap().is_free("vikasit-nova", false));
+        assert!(!get("vikasit").unwrap().is_free("vikasit-3", false));
+        assert!(get("novita")
+            .unwrap()
+            .is_free("apodex/apodex-1.1-mini", false));
+        assert!(!get("novita")
+            .unwrap()
+            .is_free("deepseek/deepseek-v4.1-flash", false));
+        assert!(get("gemini").unwrap().is_free("gemini-3.8-flash", false));
+        assert!(!get("gemini")
+            .unwrap()
+            .is_free("gemini-omni-1.2-flash", false));
+        let mistral = get("mistral").unwrap();
+        assert!(mistral.tier == Tier::Paid);
+        assert!(!mistral.is_free("codestral-latest", true));
+        assert!(!get("blockrun").unwrap().needs_key());
+        assert!(!get("blockrun")
+            .unwrap()
+            .is_free("anthropic/claude-opus", false));
     }
 
     #[test]

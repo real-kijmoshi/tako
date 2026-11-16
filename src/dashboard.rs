@@ -14,7 +14,8 @@ pub fn catalog() -> Value {
         .map(|e| json!({
             "id": e.id, "name": e.name, "tier": e.tier.label(), "type": e.wire.name(),
             "base_url": e.base_url, "key_url": e.key_url, "blurb": e.blurb,
-            "limits": e.limits, "max_tokens": e.max_tokens,
+            "limits": e.limits, "max_tokens": e.max_tokens, "recommended": e.models,
+            "free_filter": !matches!(e.free, catalog::FreeRule::None),
         }))
         .collect::<Vec<_>>())
 }
@@ -81,11 +82,28 @@ pub async fn action_with_token(
                 .await
                 .map(|message| json!({"message": message}));
         }
-        let models = net::models(target).await?;
+        let entry = catalog::get(id);
+        let (mut models, warning) = match net::models(target).await {
+            Ok(models) => (models, None),
+            Err(error) if entry.is_some_and(|e| e.list_incomplete) => (
+                entry.unwrap().models.iter().map(|m| (m.to_string(), false)).collect(),
+                Some(format!("Live list unavailable ({error}). Showing catalog suggestions; availability has not been verified.")),
+            ),
+            Err(error) => return Err(error),
+        };
+        models.sort_by_key(|(model, priced)| {
+            let rank = entry.and_then(|e| e.models.iter().position(|m| *m == model));
+            (
+                !entry.is_some_and(|e| e.is_free(model, *priced)),
+                rank.unwrap_or(usize::MAX),
+                model.clone(),
+            )
+        });
         return Ok(
-            json!({"models": models.iter().map(|(id_model, priced)| json!({
+            json!({"warning": warning, "models": models.iter().map(|(id_model, priced)| json!({
             "id": id_model, "target": format!("{id}/{id_model}"),
-            "free": catalog::get(id).is_some_and(|e| e.is_free(id_model, *priced)),
+            "free": entry.is_some_and(|e| e.is_free(id_model, *priced)),
+            "recommended": entry.is_some_and(|e| e.models.contains(&id_model.as_str())),
         })).collect::<Vec<_>>()}),
         );
     }

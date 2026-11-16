@@ -1,6 +1,6 @@
 [package]
 name = "tako"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "A tiny AI router: one endpoint, many providers, automatic fallback."
 license = "MIT"

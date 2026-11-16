@@ -67,6 +67,8 @@ for configuration, fallback behavior, and authentication details.
 Tako works with compatible hosted APIs and local servers such as Ollama or
 LM Studio. It does not supply model credits or bypass provider quotas. Free-tier
 availability and terms depend on your accounts and providers.
+See [free providers and recommended models](docs/providers.md) for the current
+catalog, quota notes, and the distinction between free APIs and paid services.
 
 ## Move your setup to another machine
 

@@ -319,8 +319,27 @@ pub fn traits(model: &str) -> Traits {
         t.coding += 3;
     }
     if has(&[
-        "qwen3", "glm-4.5", "glm-4.6", "glm-4.7", "glm-5", "kimi-k2", "gpt-oss", "deepseek",
-        "claude", "gpt-5", "minimax", "sonnet", "opus",
+        "qwen3",
+        "glm-4.5",
+        "glm-4.6",
+        "glm-4.7",
+        "glm-5",
+        "kimi-k2",
+        "gpt-oss",
+        "deepseek",
+        "claude",
+        "gpt-5",
+        "minimax",
+        "sonnet",
+        "opus",
+        "longcat",
+        "step-3.7",
+        "step-5",
+        "ling-3",
+        "solar-mini4",
+        "apodex",
+        "laguna",
+        "vikasit-nova",
     ]) {
         t.coding += 2;
     }
@@ -345,6 +364,11 @@ pub fn traits(model: &str) -> Traits {
         "opus",
         "gpt-5",
         "ultra",
+        "longcat",
+        "step-3.7",
+        "step-5",
+        "ling-3",
+        "apodex",
     ]) {
         t.reasoning += 1;
     }
@@ -366,7 +390,16 @@ pub fn traits(model: &str) -> Traits {
         t.vision += 3;
     }
     if has(&[
-        "gemini", "kimi", "-1m", "long", "minimax", "claude", "gpt-5",
+        "gemini",
+        "kimi",
+        "-1m",
+        "long",
+        "minimax",
+        "claude",
+        "gpt-5",
+        "ling-3",
+        "solar-mini4",
+        "apodex",
     ]) {
         t.long += 3;
     } else if has(&["glm", "deepseek", "qwen3", "command-a"]) {

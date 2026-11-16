@@ -1,0 +1,737 @@
+{
+  "checked_at": "2026-11-16T16:57:52.177064+00:00",
+  "note": "Catalog and tiny inference probes. Zero token prices do not establish account billing state. Skipped inference is not a successful test. No credentials or provider response bodies are stored. Documentation evidence is in docs/providers.md.",
+  "providers": [
+    {
+      "provider": "nous",
+      "checked_at": "2026-11-16T16:57:26.709523+00:00",
+      "models_url": "https://inference-api.nousresearch.com/v1/models",
+      "catalog_status": 200,
+      "models": [
+        {
+          "model": "meituan/longcat-2.5:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0.0000000000",
+            "completion": "0.0000000000"
+          },
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "stepfun/step-3.7-flash:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0",
+            "input_cache_read": "0"
+          },
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "upstage/solar-mini4:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0",
+            "input_cache_read": "0"
+          },
+          "inference_skipped": "No credential"
+        }
+      ],
+      "documentation_source": "https://portal.nousresearch.com/models"
+    },
+    {
+      "provider": "modelscope",
+      "checked_at": "2026-11-16T16:57:26.711623+00:00",
+      "models_url": "https://api-inference.modelscope.cn/v1/models",
+      "catalog_status": 200,
+      "models": [
+        {
+          "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "ZhipuAI/GLM-5.2",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "stepfun-ai/Step-5-Preview",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "Qwen/Qwen3.8-27B",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "moonshotai/Kimi-K3.1-Pro",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "MiniMax/MiniMax-M3",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        }
+      ],
+      "documentation_source": "https://modelscope.ai/posts/434362"
+    },
+    {
+      "provider": "siliconflow",
+      "checked_at": "2026-11-16T16:57:26.711858+00:00",
+      "models_url": "https://api.siliconflow.cn/v1/models",
+      "catalog_status": 401,
+      "models": [
+        {
+          "model": "XingChenAGI/Xing4.0-29B",
+          "listed": null,
+          "available": null,
+          "zero_token_price": true,
+          "inference_skipped": "No credential",
+          "pricing_page_prices": {
+            "prompt": "0",
+            "completion": "0"
+          }
+        },
+        {
+          "model": "Qwen/Qwen3-8B",
+          "listed": null,
+          "available": null,
+          "zero_token_price": true,
+          "inference_skipped": "No credential",
+          "pricing_page_prices": {
+            "completion": "0",
+            "prompt": "0"
+          }
+        },
+        {
+          "model": "Qwen/Qwen3.5-4B",
+          "listed": null,
+          "available": null,
+          "zero_token_price": true,
+          "inference_skipped": "No credential",
+          "pricing_page_prices": {
+            "completion": "0",
+            "prompt": "0"
+          }
+        },
+        {
+          "model": "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
+          "listed": null,
+          "available": null,
+          "zero_token_price": true,
+          "inference_skipped": "No credential",
+          "pricing_page_prices": {
+            "completion": "0",
+            "prompt": "0"
+          }
+        },
+        {
+          "model": "THUDM/GLM-4-9B-0414",
+          "listed": null,
+          "available": null,
+          "zero_token_price": true,
+          "inference_skipped": "No credential",
+          "pricing_page_prices": {
+            "completion": "0",
+            "prompt": "0"
+          }
+        },
+        {
+          "model": "THUDM/GLM-Z1-9B-0414",
+          "listed": null,
+          "available": null,
+          "zero_token_price": true,
+          "inference_skipped": "No credential",
+          "pricing_page_prices": {
+            "completion": "0",
+            "prompt": "0"
+          }
+        },
+        {
+          "model": "Qwen/Qwen2.5-7B-Instruct",
+          "listed": null,
+          "available": null,
+          "zero_token_price": true,
+          "inference_skipped": "No credential",
+          "pricing_page_prices": {
+            "prompt": "0",
+            "completion": "0"
+          }
+        },
+        {
+          "model": "tencent/Hunyuan-MT-7B",
+          "listed": null,
+          "available": null,
+          "zero_token_price": true,
+          "inference_skipped": "No credential",
+          "pricing_page_prices": {
+            "completion": "0",
+            "prompt": "0"
+          }
+        }
+      ],
+      "documentation_source": "https://www.siliconflow.cn/pricing"
+    },
+    {
+      "provider": "blockrun",
+      "checked_at": "2026-11-16T16:57:26.712022+00:00",
+      "models_url": "https://blockrun.ai/api/v1/models",
+      "catalog_status": 200,
+      "models": [
+        {
+          "model": "poolside/laguna-xs-2.1",
+          "listed": true,
+          "available": true,
+          "zero_token_price": true,
+          "pricing": {
+            "input": 0,
+            "output": 0
+          },
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "poolside/laguna-xs-2.1"
+        },
+        {
+          "model": "nvidia/nemotron-3-ultra-550b",
+          "listed": true,
+          "available": true,
+          "zero_token_price": true,
+          "pricing": {
+            "input": 0,
+            "output": 0
+          },
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "nvidia/nemotron-3-ultra-550b"
+        },
+        {
+          "model": "nvidia/nemotron-3.5-lightning",
+          "listed": true,
+          "available": true,
+          "zero_token_price": true,
+          "pricing": {
+            "input": 0,
+            "output": 0
+          },
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "nvidia/nemotron-3-super-120b"
+        },
+        {
+          "model": "nvidia/muse-glimmer-30b",
+          "listed": true,
+          "available": false,
+          "zero_token_price": true,
+          "pricing": {
+            "input": 0,
+            "output": 0
+          },
+          "inference_skipped": "Unavailable, missing or not zero-priced in live catalog",
+          "recommendation_removed": "Unavailable in pre-release live check"
+        },
+        {
+          "model": "nvidia/nemotron-3.5-bolt",
+          "listed": true,
+          "available": true,
+          "zero_token_price": true,
+          "pricing": {
+            "input": 0,
+            "output": 0
+          },
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "nvidia/nemotron-3.5-bolt"
+        }
+      ],
+      "documentation_source": "https://blockrun.ai/free"
+    },
+    {
+      "provider": "novita",
+      "checked_at": "2026-11-16T16:57:26.712251+00:00",
+      "models_url": "https://api.novita.ai/v3/openai/models",
+      "catalog_status": 200,
+      "models": [
+        {
+          "model": "apodex/apodex-1.1-mini",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        }
+      ],
+      "documentation_source": "https://novita.ai/models/model-detail/apodex-apodex-1.1-mini",
+      "pricing_page_evidence": {
+        "input_per_million_usd": 0,
+        "output_per_million_usd": 0,
+        "checked_at": "2026-11-16T17:00:19.989874+00:00"
+      }
+    },
+    {
+      "provider": "vikasit",
+      "checked_at": "2026-11-16T16:57:26.712434+00:00",
+      "models_url": "https://api.vikasit.ai/v1/models",
+      "catalog_status": "TimeoutError",
+      "models": [
+        {
+          "model": "vikasit-nova",
+          "listed": null,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        }
+      ],
+      "documentation_source": "https://vikasit.ai/inference"
+    },
+    {
+      "provider": "zai",
+      "checked_at": "2026-11-16T16:57:27.365951+00:00",
+      "models_url": "https://api.z.ai/api/paas/v4/models",
+      "catalog_status": 200,
+      "models": [
+        {
+          "model": "glm-4.7-flash",
+          "listed": false,
+          "available": null,
+          "zero_token_price": null,
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "glm-4.7-flash"
+        },
+        {
+          "model": "glm-4.5-flash",
+          "listed": false,
+          "available": null,
+          "zero_token_price": null,
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "glm-4.5-flash"
+        }
+      ],
+      "documentation_source": "https://docs.z.ai/guides/overview/pricing"
+    },
+    {
+      "provider": "openrouter",
+      "checked_at": "2026-11-16T16:57:27.799431+00:00",
+      "models_url": "https://openrouter.ai/api/v1/models",
+      "catalog_status": 200,
+      "models": [
+        {
+          "model": "inclusionai/ling-3.2-flash:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0"
+          },
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "cohere/north-mini-code:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0"
+          },
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0"
+          },
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "nvidia/nemotron-3.5-super-vl:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0"
+          },
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "thinkingmachines/inkling-2-small:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0"
+          },
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "google/gemma-4-31b-it:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0"
+          },
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "openrouter/free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0"
+          },
+          "inference_skipped": "No credential"
+        }
+      ],
+      "documentation_source": "https://openrouter.ai/api/v1/models"
+    },
+    {
+      "provider": "groq",
+      "checked_at": "2026-11-16T16:57:28.273996+00:00",
+      "models_url": "https://api.groq.com/openai/v1/models",
+      "catalog_status": 200,
+      "models": [
+        {
+          "model": "openai/gpt-oss-120b",
+          "listed": true,
+          "available": null,
+          "zero_token_price": false,
+          "pricing": {
+            "prompt": "0.00000015",
+            "completion": "0.0000006",
+            "image": "0",
+            "request": "0",
+            "input_cache_read": "0.000000075"
+          },
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "openai/gpt-oss-120b"
+        },
+        {
+          "model": "openai/gpt-oss-20b",
+          "listed": true,
+          "available": null,
+          "zero_token_price": false,
+          "pricing": {
+            "prompt": "0.000000075",
+            "completion": "0.0000003",
+            "image": "0",
+            "request": "0",
+            "input_cache_read": "0.0000000375"
+          },
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "openai/gpt-oss-20b"
+        }
+      ],
+      "documentation_source": "https://console.groq.com/docs/rate-limits"
+    },
+    {
+      "provider": "nvidia",
+      "checked_at": "2026-11-16T16:57:28.537481+00:00",
+      "models_url": "https://integrate.api.nvidia.com/v1/models",
+      "catalog_status": 200,
+      "models": [
+        {
+          "model": "deepseek-ai/deepseek-v4.1-flash",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "z-ai/glm-5.3-flash",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "minimaxai/minimax-m3.1-flash",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "stepfun-ai/step-5-preview",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "mistralai/mistral-large-4-1t-a52b",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "poolside/laguna-xs-2.1",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        }
+      ],
+      "documentation_source": "https://build.nvidia.com"
+    },
+    {
+      "provider": "gemini",
+      "checked_at": "2026-11-16T16:57:28.742239+00:00",
+      "models_url": "https://generativelanguage.googleapis.com/v1beta/openai/models",
+      "catalog_status": 404,
+      "models": [
+        {
+          "model": "gemini-3.8-flash",
+          "listed": null,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "gemini-3.5-flash-lite",
+          "listed": null,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "gemini-3.1-flash-lite",
+          "listed": null,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        }
+      ],
+      "documentation_source": "https://aistudio.google.com/docs/pricing",
+      "catalog_note": "Anonymous probe only. Official OpenAI compatibility docs confirm the configured /v1beta/openai/models endpoint; authenticated discovery/inference were not tested."
+    },
+    {
+      "provider": "kilo",
+      "checked_at": "2026-11-16T16:57:28.903724+00:00",
+      "models_url": "https://ai-gateway.kilo.ai/api/v1/models",
+      "catalog_status": 200,
+      "models": [
+        {
+          "model": "cohere/north-mini-code:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0",
+            "discount": 0
+          },
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "cohere/north-mini-code:free"
+        },
+        {
+          "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0",
+            "discount": 0
+          },
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "nvidia/nemotron-3-ultra-550b-a55b:free"
+        },
+        {
+          "model": "nvidia/nemotron-3.5-super-vl:free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0",
+            "discount": 0
+          },
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "nvidia/nemotron-3.5-super-vl:free"
+        },
+        {
+          "model": "kilo-auto/free",
+          "listed": true,
+          "available": null,
+          "zero_token_price": true,
+          "pricing": {
+            "prompt": "0",
+            "completion": "0",
+            "input_cache_read": "0",
+            "input_cache_write": "0",
+            "request": "0",
+            "image": "0",
+            "web_search": "0",
+            "internal_reasoning": "0"
+          },
+          "inference_http_status": 200,
+          "inference_accepted": true,
+          "served_model": "stealth/glyph-cluster"
+        }
+      ],
+      "documentation_source": "https://kilo.ai/docs/gateway/authentication"
+    },
+    {
+      "provider": "cloudflare",
+      "checked_at": "2026-11-16T16:57:28.980933+00:00",
+      "models_url": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1/models",
+      "catalog_status": "requires account ID",
+      "models": [],
+      "documentation_source": "https://developers.cloudflare.com/workers-ai/platform/pricing/"
+    },
+    {
+      "provider": "llm7",
+      "checked_at": "2026-11-16T16:57:28.981008+00:00",
+      "models_url": "https://api.llm7.io/v1/models",
+      "catalog_status": 200,
+      "models": [
+        {
+          "model": "codestral-latest",
+          "listed": true,
+          "available": null,
+          "zero_token_price": false,
+          "pricing": {
+            "input": 0.01,
+            "output": 0.02,
+            "currency": "USD",
+            "unit": "1M tokens"
+          },
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "glm-5.3-flash",
+          "listed": true,
+          "available": null,
+          "zero_token_price": false,
+          "pricing": {
+            "input": 0.02,
+            "output": 0.05,
+            "cached_input": 0.01,
+            "currency": "USD",
+            "unit": "1M tokens"
+          },
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "gpt-oss:20b",
+          "listed": true,
+          "available": null,
+          "zero_token_price": false,
+          "pricing": {
+            "input": 0.03,
+            "output": 0.05,
+            "currency": "USD",
+            "unit": "1M tokens"
+          },
+          "inference_skipped": "No credential"
+        }
+      ],
+      "documentation_source": "https://raw.githubusercontent.com/chigwell/llm7.io/main/TERMS.md"
+    },
+    {
+      "provider": "typhoon",
+      "checked_at": "2026-11-16T16:57:29.323808+00:00",
+      "models_url": "https://api.opentyphoon.ai/v1/models",
+      "catalog_status": 200,
+      "models": [
+        {
+          "model": "typhoon-v2.5-30b-a3b-instruct",
+          "listed": true,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "typhoon-v2.1-12b-instruct",
+          "listed": false,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential",
+          "recommendation_removed": "Absent from current live list"
+        }
+      ],
+      "documentation_source": "https://docs.opentyphoon.ai/en/rate-limits/"
+    },
+    {
+      "provider": "cohere",
+      "checked_at": "2026-11-16T16:57:29.379585+00:00",
+      "models_url": "https://api.cohere.ai/compatibility/v1/models",
+      "catalog_status": 401,
+      "models": [
+        {
+          "model": "command-a-plus-05-2026",
+          "listed": null,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        },
+        {
+          "model": "command-a-03-2025",
+          "listed": null,
+          "available": null,
+          "zero_token_price": null,
+          "inference_skipped": "No credential"
+        }
+      ],
+      "documentation_source": "https://docs.cohere.com/docs/rate-limits"
+    },
+    {
+      "provider": "vercel",
+      "checked_at": "2026-11-16T16:57:29.719903+00:00",
+      "models_url": "https://ai-gateway.vercel.sh/v1/models",
+      "catalog_status": 200,
+      "models": [],
+      "documentation_source": "https://vercel.com/docs/ai-gateway/pricing"
+    }
+  ],
+  "summary": {
+    "inference_successes": 12,
+    "inference_failures": 0
+  }
+}

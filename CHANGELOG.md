@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.1.4 — 2026-11-16
+
+- Expand the catalog to 22 providers with Nous Portal, ModelScope, SiliconFlow China, BlockRun, Novita's Apodex promotion, and Vikasit Nova.
+- Refresh free-model recommendations, highlight them in the web picker, and default to the free filter where known free models exist.
+- Keep Mistral's direct API clearly marked paid and restrict Gemini free labels to documented text models.
+- Accept numeric and decimal zero prices, exclude unavailable/non-text models from discovery, and label catalog suggestions when live discovery fails.
+- Recheck provider pricing and live catalogs before release; remove unavailable BlockRun Muse Glimmer and retired Typhoon 2.1 recommendations. Record successful inference probes and untested accounts separately.
+- Let users dismiss the dashboard setup checklist.
 
 - Add smart routes: model names like `free:auto`, `free:coding` or `any:reasoning` that rank your models for each request by task fit and live health, with the ranking as the fallback order.
 - Let `auto` routes pick a task from the request: images, long prompts, thinking requests, tools or code, and short questions.

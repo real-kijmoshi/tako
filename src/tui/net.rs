@@ -87,6 +87,28 @@ mod provider_tests {
     };
 
     #[test]
+    fn model_metadata_handles_zero_prices_without_guessing_missing_prices() {
+        let list = parse_models("custom", &json!({"data": [
+            {"id": "numeric", "pricing": {"prompt": 0, "completion": 0}},
+            {"id": "string", "pricing": {"prompt": "0.0", "completion": "0"}},
+            {"id": "blockrun", "pricing": {"input": 0, "output": 0}},
+            {"id": "unknown"},
+            {"id": "partial", "pricing": {"prompt": "0"}},
+            {"id": "paid", "pricing": {"prompt": "0", "completion": "0.001"}},
+            {"id": "request-fee", "pricing": {"prompt": 0, "completion": 0, "request": "0.01"}},
+            {"id": "offline", "available": false, "pricing": {"input": 0, "output": 0}},
+            {"id": "music", "architecture": {"output_modalities": ["audio"]}, "pricing": {"prompt": "0", "completion": "0"}}
+        ]})).unwrap();
+        for id in ["numeric", "string", "blockrun"] {
+            assert!(list.contains(&(id.into(), true)));
+        }
+        for id in ["unknown", "partial", "paid", "request-fee"] {
+            assert!(list.contains(&(id.into(), false)));
+        }
+        assert!(!list.iter().any(|(id, _)| id == "offline" || id == "music"));
+    }
+
+    #[test]
     fn cloudflare_lists_model_names_instead_of_internal_ids() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
@@ -159,30 +181,56 @@ pub async fn models(t: Target) -> Result<Vec<(String, bool)>, String> {
     }
     let v: Value =
         serde_json::from_str(&body).map_err(|_| "unexpected model list format".to_string())?;
+    parse_models(&t.name, &v)
+}
+
+fn parse_models(provider: &str, v: &Value) -> Result<Vec<(String, bool)>, String> {
     let arr = v
         .get("data")
         .or(v.get("models"))
         .or(v.get("result"))
-        .unwrap_or(&v)
+        .unwrap_or(v)
         .as_array()
         .ok_or("unexpected model list format")?;
     let mut out: Vec<(String, bool)> = arr
         .iter()
         .filter_map(|m| {
-            let id = if t.name == "cloudflare" {
+            if m["available"] == false {
+                return None;
+            }
+            if m["architecture"]["output_modalities"]
+                .as_array()
+                .is_some_and(|outputs| !outputs.iter().any(|v| v == "text"))
+            {
+                return None;
+            }
+            let id = if provider == "cloudflare" {
                 m["name"].as_str()
             } else {
                 m["id"].as_str().or(m["name"].as_str())
             }?;
             let id = id.strip_prefix("models/").unwrap_or(id).to_string();
             let p = &m["pricing"];
-            let priced_free = p.is_object() && p["prompt"] == "0" && p["completion"] == "0";
+            let zero =
+                |v: &Value| v.as_f64().or_else(|| v.as_str()?.parse::<f64>().ok()) == Some(0.0);
+            let token_free = (zero(&p["prompt"]) && zero(&p["completion"]))
+                || (zero(&p["input"]) && zero(&p["output"]));
+            let extras = [
+                "request",
+                "image",
+                "audio",
+                "web_search",
+                "internal_reasoning",
+                "input_cache_read",
+                "input_cache_write",
+            ];
+            let priced_free = token_free && extras.iter().all(|key| p.get(key).is_none_or(&zero));
             Some((id, priced_free))
         })
         .collect();
     out.sort();
     out.dedup_by(|a, b| a.0 == b.0);
-    if let Some(e) = crate::catalog::get(&t.name).filter(|e| e.list_incomplete) {
+    if let Some(e) = crate::catalog::get(provider).filter(|e| e.list_incomplete) {
         for m in e.models {
             if !out.iter().any(|(id, _)| id == m) {
                 out.push((m.to_string(), false));
