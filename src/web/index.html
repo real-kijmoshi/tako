@@ -2128,7 +2128,7 @@ button:disabled { cursor: not-allowed; }
   function updateChatModels() {
     const select = $('chat-model'), old = select.value;
     const combos = Object.keys(overview?.combos || {});
-    const routes = (overview?.routes || []).flatMap(p => p.tasks.filter(t => t.picks.length).map(t => t.name));
+    const routes = (overview?.routes || []).flatMap(p => { const ok = p.tasks.filter(t => t.picks.length).map(t => t.name); return ok.length ? [`${p.pool}:router`, ...ok] : []; });
     if (overview?.default && !combos.includes(overview.default) && !routes.includes(overview.default)) combos.push(overview.default);
     const names = [...combos, ...routes];
     const opt = n => `<option value="${esc(n)}">${esc(n)}${n === overview.default ? ' · default' : ''}</option>`;

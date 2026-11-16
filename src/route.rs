@@ -21,7 +21,10 @@ pub const POOLS: &[(&str, &str)] = &[
 ];
 
 pub const TASKS: &[(&str, &str)] = &[
-    ("auto", "reads each request and picks the task"),
+    (
+        "auto",
+        "reads each request and picks the task (also :router)",
+    ),
     ("coding", "code, tool calls and agents"),
     ("reasoning", "hard problems worked step by step"),
     ("fast", "quick replies, lowest latency"),
@@ -46,16 +49,27 @@ pub struct Plan {
 pub fn parse(name: &str) -> Option<(&'static str, &'static str)> {
     let (p, t) = name.split_once(':')?;
     let pool = POOLS.iter().find(|(n, _)| *n == p)?.0;
+    // `router` is another name for `auto`: route each request automatically
+    let t = if t == ROUTER { "auto" } else { t };
     let task = TASKS.iter().find(|(n, _)| *n == t)?.0;
     Some((pool, task))
 }
+
+/// Alias of `auto`, so `free:router` reads like what it does.
+pub const ROUTER: &str = "router";
 
 /// Every route that has at least one model to use, in a stable order.
 pub fn available(cfg: &Config) -> Vec<String> {
     POOLS
         .iter()
         .filter(|(p, _)| !candidates(cfg, p).is_empty())
-        .flat_map(|(p, _)| TASKS.iter().map(move |(t, _)| format!("{p}:{t}")))
+        .flat_map(|(p, _)| {
+            TASKS
+                .iter()
+                .map(|(t, _)| *t)
+                .chain([ROUTER])
+                .map(move |t| format!("{p}:{t}"))
+        })
         .collect()
 }
 
@@ -68,21 +82,24 @@ pub fn plan(
     health: Health,
 ) -> Option<Result<Plan, String>> {
     let name = cfg.alias(model).unwrap_or(model);
-    let (pool, asked) = parse(name).or_else(|| {
-        cfg.lookup(name)
-            .is_none()
-            .then(|| cfg.default.as_deref().and_then(parse))
-            .flatten()
-    })?;
+    let route = if parse(name).is_some() {
+        name
+    } else if cfg.lookup(name).is_none() {
+        cfg.default.as_deref().filter(|d| parse(d).is_some())?
+    } else {
+        return None;
+    };
+    let (pool, asked) = parse(route)?;
     let task = if asked == "auto" {
         classify(body)
     } else {
         asked
     };
+    // keep the word the client used: `free:router → coding`, `free:auto → coding`
     let label = if asked == "auto" {
-        format!("{pool}:auto → {task}")
+        format!("{route} → {task}")
     } else {
-        format!("{pool}:{task}")
+        route.to_string()
     };
     let targets = rank(cfg, pool, task, health);
     Some(if targets.is_empty() {
@@ -485,6 +502,7 @@ mine = ["zai/glm-4.5-flash", "deepseek/deepseek-chat"]
     fn parses_only_known_routes() {
         assert_eq!(parse("free:coding"), Some(("free", "coding")));
         assert_eq!(parse("any:auto"), Some(("any", "auto")));
+        assert_eq!(parse("free:router"), Some(("free", "auto")));
         assert_eq!(parse("free:dance"), None);
         assert_eq!(parse("openrouter/x:free"), None);
         assert_eq!(parse("mine"), None);
@@ -586,6 +604,16 @@ mine = ["zai/glm-4.5-flash", "deepseek/deepseek-chat"]
         assert_eq!(p.label, "any:coding");
         let p = plan(&c, "something-unknown", &body, NONE).unwrap().unwrap();
         assert_eq!(p.label, "free:auto → fast");
+        let p = plan(
+            &c,
+            "free:router",
+            &json!({"tools": [{"name": "bash"}], "messages": []}),
+            NONE,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(p.label, "free:router → coding");
+        assert!(c.resolve("any:router").is_ok());
         assert!(
             plan(&c, "mine", &body, NONE).is_none(),
             "a real combo is not a route"

@@ -145,7 +145,7 @@ Instead of a fixed combo, ask for a model by what you need: `pool:task`.
 | `any` | every model | | `fast` / `chat` | quick replies / everyday writing |
 | | | | `long` / `vision` | huge prompts / images |
 
-`free:auto` reads each request (images, very long prompts, thinking requests,
+`free:auto` (or `free:router`, same thing) reads each request (images, very long prompts, thinking requests,
 tools or code, short questions) and picks the task. Candidates are the models in
 your combos plus suggested models for connected providers; they're ranked by
 what each is built for, then by how it's actually been answering, and the

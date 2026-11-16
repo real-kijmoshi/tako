@@ -138,6 +138,7 @@ class Dashboard(unittest.TestCase):
         models = [m['id'] for m in self.request('/v1/models', headers={'Authorization': 'Bearer router-secret'})[1]['data']]
         self.assertIn('any:auto', models)
         self.assertIn('any:coding', models)
+        self.assertIn('any:router', models)
         overview = self.request('/api/overview')[1]
         pool = next(p for p in overview['routes'] if p['pool'] == 'any')
         self.assertEqual({t['name'] for t in pool['tasks']} >= {'any:auto', 'any:fast'}, True)
