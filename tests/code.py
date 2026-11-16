@@ -150,6 +150,28 @@ class Client(unittest.TestCase):
         self.assertEqual(c['projects'][pid]['test_commands'], [['npm', 'test']])
         code.add_project(c, self.repo)
         self.assertEqual(c['projects'][pid]['test_commands'], [['npm', 'test']], 'tests survive re-registering')
+    def test_new_folders_and_fresh_repos_are_set_up_after_asking(self):
+        asked = []
+        def yes(q): asked.append(q); return True
+        plain = self.folder / 'plain'; plain.mkdir(); (plain / 'app.py').write_text('print(1)\n')
+        with patch('builtins.print'):
+            self.assertIsNone(code.prepare_repo(plain, lambda q: False), 'declining changes nothing')
+            self.assertFalse((plain / '.git').exists())
+            c = {'url': 'https://x', 'key': 'k'}
+            with patch.object(code.Path, 'cwd', return_value=plain):
+                pid = code.pick_project(c, yes)
+        self.assertEqual(len(asked), 2, 'asks to git init, then to make the first commit')
+        self.assertIn('app.py', asked[1])
+        self.assertEqual(c['projects'][pid]['path'], str(plain.resolve()))
+        self.assertEqual(code.git(plain, 'ls-files').stdout.split(), ['app.py'])
+        self.assertEqual(code.git(plain, 'status', '--porcelain').stdout, '', 'clean, so a swarm can start')
+        empty = self.folder / 'empty'; empty.mkdir(); code.git(empty, 'init')  # like `git init .`
+        with patch('builtins.print'):
+            self.assertEqual(code.prepare_repo(empty, yes), empty.resolve())
+        self.assertEqual(code.git(empty, 'rev-list', '--count', 'HEAD').stdout.strip(), '1')
+        asked.clear()
+        self.assertEqual(code.prepare_repo(self.repo, yes), self.repo.resolve())
+        self.assertEqual(asked, [], 'a normal repository needs no questions')
     def test_job_ids_from_vps_cannot_name_paths(self):
         for bad in ['../../etc', '0123456789ABCDEF', '0123456789abcde/', '']:
             with self.assertRaises(code.CodeError):

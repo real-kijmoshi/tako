@@ -25,7 +25,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.1.9"
+VERSION = "0.1.10"
 TERMINAL = {"ready", "needs_attention", "failed", "cancelled", "applied"}
 HOME = Path(os.environ.get("TAKO_CODE_HOME", Path.home() / ".config" / "tako-code"))
 DENIED = {".git", ".env", ".env.local", ".env.production", ".ssh", ".aws", ".npmrc", ".pypirc"}
@@ -676,13 +676,16 @@ class Runner:
                     self.api.runner("event", job=job["id"], event={"phase": "failed", "message": self.api.redact(str(e))[:2000]})
             return None
 
+    def announce(self):
+        """Re-send projects and engines, so a just-added repository shows up in the web panel and is accepted."""
+        self.api.runner("register", name=self.c["name"], projects=projects(self.c), engines=available_engines())
+
     def submit(self, project_id, engine, workers, task):
         """Start a swarm typed on this PC; the VPS records it so the web UI shows it too."""
         with self.lock:
             if self.busy():
                 raise CodeError("A swarm is already running; wait for it or cancel it first")
-            # Re-announce projects and engines so a just-added repository is accepted.
-            self.api.runner("register", name=self.c["name"], projects=projects(self.c), engines=available_engines())
+            self.announce()
             job = self.api.runner("submit", project=project_id, engine=engine, workers=workers, task=task)["job"]
             if not re.fullmatch(r"[a-f0-9]{16}", str(job.get("id", ""))):
                 raise CodeError("VPS sent an invalid job id")
@@ -985,13 +988,71 @@ def add_project(c, path, tests=None):
     save(HOME / "config.json", c)
     return pid
 
-def pick_project(c):
-    """Use the Git repository in the current directory, or the last one used."""
+def prepare_repo(path, ask):
+    """Make a folder usable for swarms, asking first: `git init` it, and create the first commit.
+
+    Agents start from the last commit, so a repository without one cannot be used.
+    Returns the repository root, or None when the user declines.
+    """
+    if not shutil.which("git"):
+        raise CodeError("Git is required on the PC. Install it from https://git-scm.com and try again.")
+    path = Path(path).expanduser().resolve()
+    if not path.is_dir():
+        raise CodeError(f"{path} is not a folder")
+    top = git(path, "rev-parse", "--show-toplevel", check=False)
+    if top.returncode:
+        if path in (Path.home(), Path(path.anchor)):
+            raise CodeError("cd into a project folder first, or use /project PATH")
+        if not ask(f"{path} is not a Git repository yet. Create one here?"):
+            return None
+        git(path, "init")
+        root = path
+    else:
+        root = Path(top.stdout.strip()).resolve()
+    if git(root, "rev-parse", "--verify", "-q", "HEAD", check=False).returncode:
+        files = git(root, "status", "--porcelain", "--untracked-files=all").stdout.splitlines()
+        if files:
+            names = [clean(f[3:]) for f in files[:8]]
+            listing = "\n".join("      " + n for n in names) + (f"\n      … and {len(files) - 8} more" if len(files) > 8 else "")
+            question = (f"This repository has no commits yet. Agents start from a commit, so commit these "
+                        f"{len(files)} file(s) as the first one? Agents will see them.\n{listing}\n ")
+        else:
+            question = "This repository has no commits yet. Agents start from a commit; create an empty first one?"
+        if not ask(question):
+            return None
+        if files:
+            git(root, "add", "-A")
+        # Use the user's own Git identity when they have one; git() defaults to "Tako Code".
+        who = []
+        for key in ("user.name", "user.email"):
+            value = subprocess.run(["git", "-C", str(root), "config", key], capture_output=True, text=True).stdout.strip()
+            if value:
+                who += ["-c", f"{key}={value}"]
+        git(root, *who, "commit", "--allow-empty", "-q", "-m", "Initial commit")
+        print(paint("32", "  ✓ Created the first commit."))
+    return root
+
+def ask_yes(question):
     try:
-        return add_project(c, Path.cwd())
-    except CodeError:
-        pid = c.get("last_project")
-        return pid if pid in c.get("projects", {}) else None
+        return input(f"  {question} [Y/n] ").strip().lower() in ("", "y", "yes")
+    except EOFError:
+        return False
+
+def pick_project(c, ask=None):
+    """Use the Git repository in the current directory (offering to set it up), or the last one used."""
+    last = c.get("last_project") if c.get("last_project") in c.get("projects", {}) else None
+    try:
+        if not ask:
+            return add_project(c, Path.cwd())
+        in_repo = shutil.which("git") and not git(Path.cwd(), "rev-parse", "--show-toplevel", check=False).returncode
+        if not in_repo and last:
+            return last  # started outside a repository: keep working in the last project (/project . sets up this folder)
+        root = prepare_repo(Path.cwd(), ask)
+        return add_project(c, root) if root else last
+    except CodeError as e:
+        if ask and "Git is required" in str(e):
+            print(paint("31", "  " + clean(e)))
+        return last
 
 HELP = """  Type what you want built and press Enter. Commands:
     /agents N        how many agents run in parallel (1–6)
@@ -1030,7 +1091,10 @@ def tui():
         engines = available_engines()
         engine = c.get("engine") if c.get("engine") in engines else next(e for e in ENGINE_ORDER if e in engines)
         workers = c.get("workers", 3)
-        pid = pick_project(c)
+        pid = pick_project(c, ask_yes)
+        if pid:
+            with contextlib.suppress(CodeError, OSError):
+                runner.announce()  # so the web panel lists the project right away
         print(status_line(c, pid, engine, workers))
         if "claude" not in engines:
             print(paint("2", "  Claude Code isn't installed, so agents use " + ENGINE_NAMES[engine] + ". Install it from https://claude.com/claude-code to use Claude Code agents."))
@@ -1075,8 +1139,12 @@ def tui():
                             save(HOME / "config.json", c)
                             print(f"  Agents now use {ENGINE_NAMES[engine]}.")
                         elif cmd == "/project":
-                            pid = add_project(c, Path(arg or ".").expanduser())
-                            print(status_line(c, pid, engine, workers))
+                            root = prepare_repo(Path(arg or ".").expanduser(), ask_yes)
+                            if root:
+                                pid = add_project(c, root)
+                                with contextlib.suppress(CodeError, OSError):
+                                    runner.announce()
+                                print(status_line(c, pid, engine, workers))
                         elif cmd == "/tests":
                             if not pid:
                                 raise CodeError("Choose a project first")
@@ -1104,7 +1172,7 @@ def tui():
                 # Anything else is a task for the swarm.
                 try:
                     if not pid:
-                        raise CodeError("cd into a Git repository first, or use /project PATH")
+                        raise CodeError("No project yet. Use /project . to work in this folder, or /project PATH")
                     repo = Path(c["projects"][pid]["path"])
                     if git(repo, "status", "--porcelain").stdout.strip():
                         raise CodeError("Your repository has uncommitted changes. Commit or stash them first; agents start from your last commit.")

@@ -51,7 +51,7 @@ tako ❯ add rate-limit headers to the API and tests for them
 | `/project PATH` | Work in another Git repository |
 | `/status`, `/help`, `/quit` | |
 
-Ctrl+C cancels a running swarm. Your repository must have a commit and no uncommitted changes when a swarm starts; agents start from your last commit and your checkout is untouched until `/apply`.
+Ctrl+C cancels a running swarm. Agents start from your last commit, so your repository needs no uncommitted changes when a swarm starts; your checkout is untouched until `/apply`. Run `tako-code` in a folder that isn't a Git repository yet, or one with no commits, and it offers to set it up (`git init` and a first commit with the files there).
 
 While `tako-code` is open, the **Code swarms** page of your web panel shows this PC. Swarms you start in the terminal appear there too, and swarms started from the web run on your PC (press Enter in the terminal to watch). To serve the web panel without the interactive screen, run `tako-code run`. If you have Tako on the PC as well, `tako code` runs the same program.
 

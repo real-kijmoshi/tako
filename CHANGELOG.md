@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10 — 2026-11-16
+
+- Set up new projects from `tako-code`: in a folder that isn't a Git repository, or a repository with no commits (right after `git init`), it now offers to create the repository and the first commit, listing the files first. Previously it showed a raw `git rev-parse` error.
+- Show a project in the web panel's **Local project** list as soon as `tako-code` opens it, instead of only after the first swarm typed in the terminal.
+- `/project .` works in the current folder; the "no project" message says so.
+
 ## 0.1.9 — 2026-11-16
 
 - Run `tako-code` with no arguments for an interactive swarm screen: the first run asks for the server URL and client key, the Git repository in the current directory is used automatically, and you type tasks instead of using the web panel. Agents default to Claude Code when it is installed.
